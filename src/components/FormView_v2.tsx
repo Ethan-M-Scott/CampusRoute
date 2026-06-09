@@ -96,19 +96,19 @@ export function FormView({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-red-600 h-20 shadow-lg flex items-center justify-between px-8">
+      <header className="bg-blue-600 h-20 shadow-lg flex items-center justify-between px-8">
         <div className="flex items-center gap-3">
           <MapPin className="w-8 h-8 text-white" />
           <span
             className="text-white"
             style={{ fontSize: "24px", fontWeight: 700 }}
           >
-            RedRoute
+            CampusRoute
           </span>
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="bg-red-800 rounded-lg px-4 py-2 flex items-center gap-3">
+          <div className="bg-blue-800 rounded-lg px-4 py-2 flex items-center gap-3">
             <User className="w-5 h-5 text-white" />
             <span className="text-white" style={{ fontWeight: 600 }}>
               dawg_user
@@ -119,7 +119,7 @@ export function FormView({
             {onLogout && (
               <button
                 onClick={onLogout}
-                className="bg-white text-red-600 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors flex items-center gap-2"
+                className="bg-white text-blue-600 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors flex items-center gap-2"
                 style={{ fontWeight: 600 }}
               >
                 <LogOut className="w-4 h-4" />
@@ -128,7 +128,7 @@ export function FormView({
             )}
             <button
               onClick={onClose}
-              className="bg-red-800 text-white px-4 py-2 rounded-lg hover:bg-red-900 transition-colors flex items-center gap-2"
+              className="bg-blue-800 text-white px-4 py-2 rounded-lg hover:bg-blue-900 transition-colors flex items-center gap-2"
               style={{ fontWeight: 600 }}
             >
               <X className="w-4 h-4" />
@@ -144,12 +144,12 @@ export function FormView({
             Add Saved Stops
           </h1>
           <p className="text-gray-600 mb-8" style={{ fontSize: "16px" }}>
-            Choose the bus stops you care about most. RedRoute will show live
+            Choose the bus stops you care about most. CampusRoute will show live
             status for the routes serving these stops.
           </p>
 
           {error && (
-            <div className="mb-4 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">
+            <div className="mb-4 text-sm text-blue-600 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
               {error}
             </div>
           )}
@@ -199,7 +199,7 @@ export function FormView({
               <button
                 type="submit"
                 disabled={submitting || loadingStops}
-                className="h-12 bg-red-600 text-white rounded-lg px-6 hover:bg-red-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+                className="h-12 bg-blue-600 text-white rounded-lg px-6 hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
                 style={{ fontWeight: 600 }}
               >
                 <Save className="w-4 h-4" />

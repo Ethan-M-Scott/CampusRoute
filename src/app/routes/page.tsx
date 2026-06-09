@@ -4,6 +4,8 @@ import { useRouter } from 'next/navigation';
 import { signOut } from '@/lib/auth-client';
 import { MapPin, Bus, User, LogOut, Plus, Trash2, AlertCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { useAppState } from '@/src/components/AppStateContext';
+import { SCHOOLS } from '@/src/data/schools';
 
 type SystemAlert = {
   id: string;
@@ -167,10 +169,10 @@ function SavedStopCard({
 function getAlertColor(isImportant: boolean): { bg: string; border: string; text: string; dot: string; } {
     if (isImportant) {
         return {
-            bg: 'bg-red-100',
-            border: 'border-red-300',
-            text: 'text-red-800',
-            dot: 'bg-red-600',
+            bg: 'bg-blue-100',
+            border: 'border-blue-300',
+            text: 'text-blue-800',
+            dot: 'bg-blue-600',
         };
     }
     // Default to yellow for non-critical informational alerts
@@ -188,15 +190,21 @@ export default function RoutesPage() {
   const onAddRoute = useCallback(() => router.push("/routes/new"), [router]);
   const onLogout = useCallback(async() => {
     await signOut();
-    router.push('/home');
+    router.push('/');
   }, [router]);
 
   const { 
         data: session, // auth session info
         isPending, //loading state
-        error, //error object
-        refetch //refetch the session
     } = useSession();
+
+  // Redirect to unauthenticated home page if not logged in
+  useEffect(() => {
+    if (!isPending && !session) {
+      router.push('/');
+    }
+  }, [session, isPending, router]);
+
   const [savedStops, setSavedStops] = useState<SavedStopRecord[]>([]);
   const [stopDetails, setStopDetails] = useState<Record<string, StopDetail>>(
     {}
@@ -217,50 +225,70 @@ export default function RoutesPage() {
     lng: number;
   } | null>(null);
 
-  // useEffect for Alerts
+  const { selectedSchool, setSelectedSchool } = useAppState();
+  const defaultSchool = SCHOOLS.find(s => s.id === "uga") || SCHOOLS[0];
+  const sessionSchool = session?.user?.school ? SCHOOLS.find(s => s.id === session.user.school) : null;
+  const school = isPending ? null : (sessionSchool || selectedSchool || defaultSchool);
+
+  // Load user's school from session
   useEffect(() => {
+    if (session?.user && session.user.school) {
+      const sessionSchool = SCHOOLS.find(s => s.id === session.user.school);
+      if (sessionSchool) {
+        setSelectedSchool(sessionSchool);
+      }
+    }
+  }, [session, setSelectedSchool]);
+
+  useEffect(() => {
+    let isMounted = true;
     const loadAlerts = async () => {
       try {
         // Fetching from the explicit FastAPI URL
-        const res = await fetch("http://127.0.0.1:5050/alerts");
+        const res = await fetch(`http://127.0.0.1:5050/alerts?system_id=${school.passioId}`);
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}`);
         }
         const data = await res.json();
-        setAlerts(data.alerts || []);
+        if (isMounted) setAlerts(data.alerts || []);
       } catch (err) {
         console.error("Failed to load system alerts:", err);
+        if (isMounted) setAlerts([]);
       } finally {
-        setLoadingAlerts(false);
+        if (isMounted) setLoadingAlerts(false);
       }
     };
-    loadAlerts();
-  }, []);
+    if (school?.passioId) loadAlerts();
+    return () => { isMounted = false; };
+  }, [school?.passioId]);
   // --------------------
   
   // Load saved stops from DB
   useEffect(() => {
+    let isMounted = true;
     const loadSavedStops = async () => {
       try {
         const res = await fetch("/api/stops/mine");
         if (res.status === 401) {
-          setSavedStops([]);
+          if (isMounted) setSavedStops([]);
           return;
         }
         const data = await res.json();
-        setSavedStops(data.stops || []);
+        if (isMounted) setSavedStops(data.stops || []);
       } catch (err) {
         console.error("Failed to load saved stops", err);
       } finally {
-        setLoadingSaved(false);
+        if (isMounted) setLoadingSaved(false);
       }
     };
 
     loadSavedStops();
+    return () => { isMounted = false; };
   }, []);
 
   // Load details for saved stops (including lat/lng and routes)
   useEffect(() => {
+    let isMounted = true;
     const fetchDetails = async () => {
       if (savedStops.length === 0) {
         setStopDetails({});
@@ -269,7 +297,7 @@ export default function RoutesPage() {
       const ids = savedStops.map((s) => s.passioStopId).join(",");
       try {
         const res = await fetch(
-          `/api/stops/details?ids=${encodeURIComponent(ids)}`
+          `/api/stops/details?ids=${encodeURIComponent(ids)}&system_id=${school.passioId}`
         );
         const data = await res.json();
         const map: Record<string, StopDetail> = {};
@@ -282,32 +310,38 @@ export default function RoutesPage() {
             routes: st.routes || [],
           };
         }
-        setStopDetails(map);
+        if (isMounted) setStopDetails(map);
       } catch (err) {
         console.error("Failed to load stop details", err);
+        if (isMounted) setStopDetails({});
       }
     };
 
-    fetchDetails();
-  }, [savedStops]);
+    if (school?.passioId) fetchDetails();
+    return () => { isMounted = false; };
+  }, [savedStops, school?.passioId]);
 
   // Always load full list of routes
   useEffect(() => {
+    let isMounted = true;
     const loadAllRoutes = async () => {
       setLoadingAllRoutes(true);
       try {
-        const res = await fetch("/api/routes/nearby");
+        const res = await fetch(`/api/routes/nearby?system_id=${school.passioId}`);
+        if (!res.ok) throw new Error("Failed to load routes");
         const data: NearbyResponse = await res.json();
-        setAllRoutes(data.routes || []);
+        if (isMounted) setAllRoutes(data.routes || []);
       } catch (err) {
         console.warn("Error loading all routes:", err);
+        if (isMounted) setAllRoutes([]);
       } finally {
-        setLoadingAllRoutes(false);
+        if (isMounted) setLoadingAllRoutes(false);
       }
     };
 
-    loadAllRoutes();
-  }, []);
+    if (school?.passioId) loadAllRoutes();
+    return () => { isMounted = false; };
+  }, [school?.passioId]);
 
   // Nearby routes via geolocation
   useEffect(() => {
@@ -315,17 +349,20 @@ export default function RoutesPage() {
       return;
     }
 
+    let isMounted = true;
     setLoadingNearby(true);
 
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
+        if (!isMounted) return;
         try {
           const { latitude, longitude } = pos.coords;
-          setUserLocation({ lat: latitude, lng: longitude });
+          if (isMounted) setUserLocation({ lat: latitude, lng: longitude });
 
           const res = await fetch(
-            `/api/routes/nearby?lat=${latitude}&lng=${longitude}`
+            `/api/routes/nearby?lat=${latitude}&lng=${longitude}&system_id=${school.passioId}`
           );
+          if (!res.ok) throw new Error("Failed to load nearby routes");
           const data: NearbyResponse = await res.json();
 
           const stops = data.stops || [];
@@ -351,25 +388,33 @@ export default function RoutesPage() {
           }
 
           const routesArr = Array.from(map.values());
-          setNearbyRoutes(routesArr);
-          setUsedLocation(true);
+          if (isMounted) {
+            setNearbyRoutes(routesArr);
+            setUsedLocation(true);
+          }
         } catch (err) {
           console.warn("Error loading nearby routes:", err);
-          setUsedLocation(false);
-          setNearbyRoutes([]);
+          if (isMounted) {
+            setUsedLocation(false);
+            setNearbyRoutes([]);
+          }
         } finally {
-          setLoadingNearby(false);
+          if (isMounted) setLoadingNearby(false);
         }
       },
       (err) => {
         console.warn("User denied/failed geolocation:", err);
-        setUsedLocation(false);
-        setNearbyRoutes([]);
-        setLoadingNearby(false);
+        if (isMounted) {
+          setUsedLocation(false);
+          setNearbyRoutes([]);
+          setLoadingNearby(false);
+        }
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
-  }, []);
+
+    return () => { isMounted = false; };
+  }, [school?.passioId]);
 
   const deleteStop = async (id: string) => {
     try {
@@ -433,7 +478,7 @@ export default function RoutesPage() {
     // 3) Nothing loaded.
     return (
       <p className="text-gray-600 text-sm">
-        Unable to load route information at this time.
+        Unable to load route information. {school?.name}'s transit provider may be offline or unsupported.
       </p>
     );
   };
@@ -441,29 +486,31 @@ export default function RoutesPage() {
   const showNoNearbyMessage =
     usedLocation && nearbyRoutes.length === 0 && allRoutes.length > 0;
 
+  const mapEmbedUrl = school ? `https://maps.google.com/maps?q=${school.latitude},${school.longitude}&z=15&output=embed` : "";
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-red-600 h-20 shadow-lg flex items-center justify-between px-8">
+      <header className="bg-blue-600 h-20 shadow-lg flex items-center justify-between px-8">
         <div className="flex items-center gap-3">
           <MapPin className="w-8 h-8 text-white" />
           <span
             className="text-white"
             style={{ fontSize: "24px", fontWeight: 700 }}
           >
-            RedRoute
+            CampusRoute
           </span>
         </div>
 
         <div className="flex items-center gap-4">
           {isPending ? null : session && (
-            <div className="bg-red-800 rounded-lg px-4 py-2 flex items-center gap-3">
+            <div className="bg-blue-800 rounded-lg px-4 py-2 flex items-center gap-3">
               <User className="w-5 h-5 text-white" />{/* I'm not sure if we still want to keep this icon. */}
               <span className="text-white font-semibold">Welcome, {session.user.name}</span>
             </div>)
           }
           <button
             onClick={onLogout}
-            className="bg-white text-red-600 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors flex items-center gap-2"
+            className="bg-white text-blue-600 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors flex items-center gap-2"
             style={{ fontWeight: 600 }}
           >
             <LogOut className="w-4 h-4" />
@@ -487,11 +534,12 @@ export default function RoutesPage() {
                   background: "linear-gradient(135deg, #E5E7EB 0%, #D1D5DB 100%)",
                 }}
               >
-                <iframe className="w-full h-full rounded-lg flex flex-col items-center justify-center" src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3309.9456374959514!2d
-                -83.37366874877299!3d33.94252628646278!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1
-                s0x88f6136038fba6bf%3A0xdf849d68bb40ef74!2sUniversity%20of%20Georgia!5e0!3m2!1sen!2sus!4
-                v1763832363302!5m2!1sen!2sus&iwloc=near" width="800" height="800" 
-                style={{border:0}} loading="lazy" referrerPolicy="no-referrer-when-downgrade"></iframe>
+                {school ? (
+                  <iframe key={mapEmbedUrl} className="w-full h-full rounded-lg flex flex-col items-center justify-center" src={mapEmbedUrl} width="800" height="800" 
+                  style={{border:0}} loading="lazy" referrerPolicy="no-referrer-when-downgrade"></iframe>
+                ) : (
+                  <p className="text-gray-600 font-medium">Loading Map...</p>
+                )}
               </div>
             </div>
 
@@ -499,7 +547,7 @@ export default function RoutesPage() {
             {/* Real-time traffic alerts (DYNAMIC) */}
             <div className="bg-white rounded-xl shadow-lg p-6">
               <div className="flex items-center gap-2 mb-4">
-                <AlertCircle className="w-5 h-5 text-red-600" />
+                <AlertCircle className="w-5 h-5 text-blue-600" />
                 <h2 className="text-lg font-bold">Traffic Alerts</h2>
               </div>
 
@@ -544,12 +592,12 @@ export default function RoutesPage() {
             <div className="bg-white rounded-xl shadow-lg p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                  <Bus className="w-5 h-5 text-red-600" />
+                  <Bus className="w-5 h-5 text-blue-600" />
                   <h2 className="text-lg font-bold">Saved Stops</h2>
                 </div>
                 <button
                   onClick={onAddRoute}
-                  className="p-2 rounded-full text-red-600 hover:text-red-700 hover:bg-gray-100 transition-colors"
+                  className="p-2 rounded-full text-blue-600 hover:text-blue-700 hover:bg-gray-100 transition-colors"
                 >
                   <Plus className="w-5 h-5" />
                 </button>
@@ -584,7 +632,7 @@ export default function RoutesPage() {
             {/* Bus Routes Near You */}
             <div className="bg-white rounded-xl shadow-lg p-6">
               <div className="flex items-center gap-2 mb-4">
-                <Bus className="w-5 h-5 text-red-600" />
+                <Bus className="w-5 h-5 text-blue-600" />
                 <h2 className="text-lg font-bold">Bus Routes Near You</h2>
               </div>
 
@@ -598,7 +646,7 @@ export default function RoutesPage() {
 
               {showNoNearbyMessage && (
                 <p className="text-gray-500 text-sm mt-2">
-                  No nearby stops found – showing all UGA routes instead.
+                  No nearby stops found – showing all {school?.name || "campus"} routes instead.
                 </p>
               )}
 

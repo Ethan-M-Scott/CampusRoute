@@ -3,6 +3,7 @@
 import { signIn } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useState } from "react";
+import { SCHOOLS } from '@/src/data/schools';
 
 const LoginModal = ({dialog}: {dialog: HTMLDialogElement | null}) => {
   const router = useRouter();
@@ -12,39 +13,47 @@ const LoginModal = ({dialog}: {dialog: HTMLDialogElement | null}) => {
     event.preventDefault();
 
     try {
-      // compile the form fields into an array of [fieldname, value] tuples
       const formData = new FormData(event.currentTarget);
-      const fields = ["email", "password"].map((fieldname) => {
-        const value = formData.get(fieldname)?.toString();
-        if (value) return [fieldname, value];
-        else throw new Error(`${fieldname} is required`);
+      const email = formData.get("email")?.toString();
+      const password = formData.get("password")?.toString();
+
+      if (!email || !password) {
+        setError("Email and password are required");
+        return;
+      }
+
+      // Attempt to sign in using better-auth
+      const { data, error: authError } = await signIn.email({
+        email,
+        password,
       });
 
-      // attempt to sign in using better-auth
-      const { data, error } = await signIn.email(Object.fromEntries(fields));
-      if (error) throw new Error(error.message, {cause: error});
+      if (authError) {
+        setError(authError.message || "could not sign in with the provided credentials");
+        return;
+      }
 
-      // it may be better to store a redirect uri in the search params
-      router.push('/routes');
+      dialog?.close();
+      window.location.href = '/routes';
     } catch (e: any) {
-      console.error(e);
+      console.error("Login error:", e);
       setError(e.message || "could not sign in with the provided credentials");
     }
-  }, [router, setError]);
+  }, [router, dialog]);
 
   return (
     <form onSubmit={onSubmit} className="p-8 w-96">
       <h2 className="text-xl font-bold mb-4">Login</h2>
       <label htmlFor="email">Email:</label>
-      <input autoFocus id="email" name="email" type="email" placeholder="Enter Email" className="w-full mb-2 p-2 border rounded" />
-      <label htmlFor="email">Password:</label>
-      <input id="password" name="password" type="password" placeholder="Enter Password" minLength={8} maxLength={128} className="w-full mb-4 p-2 border rounded" />
-      {error ? <span className="capitalize">{error}</span> : ""}
-      <div className="flex justify-end gap-2">
+      <input autoFocus id="email" name="email" type="email" placeholder="Enter Email" className="w-full mb-2 p-2 border rounded" required />
+      <label htmlFor="password">Password:</label>
+      <input id="password" name="password" type="password" placeholder="Enter Password" minLength={8} maxLength={128} className="w-full mb-4 p-2 border rounded" required />
+      {error ? <span className="capitalize text-red-600 text-sm">{error}</span> : ""}
+      <div className="flex justify-end gap-2 mt-4">
         <button type="button" onClick={() => dialog?.close()} className="px-4 py-2 border rounded hover:bg-gray-100">
           Cancel
         </button>
-        <button type="submit" className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">
+        <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
           Log In
         </button>
       </div>

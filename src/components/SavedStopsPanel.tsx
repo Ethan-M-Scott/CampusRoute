@@ -42,8 +42,6 @@ export default function SavedStopsPanel() {
         });
 
         if (res.status === 401) {
-          // not signed in — the parent should normally hide this component for non-auth,
-          // but just in case:
           setStops([]);
           setError("You must be signed in to save stops.");
           return;
@@ -77,7 +75,7 @@ export default function SavedStopsPanel() {
     <div className="bg-white rounded-xl shadow-lg p-6">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Bus className="w-5 h-5 text-red-600" />
+          <Bus className="w-5 h-5 text-blue-600" />
           <h2 style={{ fontSize: "18px", fontWeight: 700 }}>Saved Stops</h2>
         </div>
         <button
@@ -85,7 +83,7 @@ export default function SavedStopsPanel() {
           className="p-1 rounded-full hover:bg-gray-100"
           aria-label="Add saved stops"
         >
-          <Plus className="w-4 h-4 text-red-600" />
+          <Plus className="w-4 h-4 text-blue-600" />
         </button>
       </div>
 
@@ -94,7 +92,7 @@ export default function SavedStopsPanel() {
       )}
 
       {!loading && error && (
-        <div className="flex items-start gap-2 text-xs text-red-600 bg-red-50 border border-red-200 p-3 rounded-lg">
+        <div className="flex items-start gap-2 text-xs text-blue-600 bg-blue-50 border border-blue-200 p-3 rounded-lg">
           <AlertCircle className="w-4 h-4 mt-0.5" />
           <p>{error}</p>
         </div>

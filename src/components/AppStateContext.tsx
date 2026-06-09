@@ -6,6 +6,7 @@ import React, {
   useState,
   ReactNode,
 } from 'react';
+import type { School } from '@/src/data/schools';
 
 export type RouteItem = {
   id: number;
@@ -25,6 +26,8 @@ type AppState = {
     arrivalTime: string;
   }) => void;
   deleteRoute: (id: number) => void;
+  selectedSchool: School | null;
+  setSelectedSchool: (school: School | null) => void;
 };
 
 const AppStateContext = createContext<AppState | null>(null);
@@ -53,6 +56,7 @@ const initialRoutes: RouteItem[] = [
 export function AppStateProvider({ children }: { children: ReactNode }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [routes, setRoutes] = useState<RouteItem[]>(initialRoutes);
+  const [selectedSchool, setSelectedSchool] = useState<School | null>(null);
 
   const addRoute: AppState['addRoute'] = (data) => {
     setRoutes((prev) => {
@@ -72,6 +76,8 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     routes,
     addRoute,
     deleteRoute,
+    selectedSchool,
+    setSelectedSchool,
   };
 
   return (

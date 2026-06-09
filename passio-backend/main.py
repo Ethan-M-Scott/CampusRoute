@@ -1,65 +1,69 @@
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 import math
 import time
 import passiogo
 from datetime import datetime 
 
-# UGA is system id 3994 in Passio GO
-UGA_SYSTEM_ID = 3994
-
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-try:
-    system = passiogo.getSystemFromID(UGA_SYSTEM_ID)
-except Exception as e:
-    print("Error loading Passio system:", e)
-    system = None
+_CACHE = {}
+_REFRESH_SECONDS = 25.0
 
-# Cached Passio objects (refreshed every _REFRESH_SECONDS seconds)
-_ROUTES = None
-_STOPS = None
-_VEHICLES = None
-_ALERTS = None 
-_LAST_REFRESH = 0.0
-_REFRESH_SECONDS = 25.0  
+@app.get("/")
+def read_root():
+    return {"status": "CampusRoute Backend is running!"}
 
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    return Response(status_code=204)
 
-def _ensure_system():
-    if system is None:
-        raise HTTPException(status_code=500, detail="Passio system not loaded")
+def _ensure_system(system_id: int):
+    if system_id not in _CACHE:
+        try:
+            system = passiogo.getSystemFromID(system_id)
+            _CACHE[system_id] = {
+                "system": system,
+                "routes": None,
+                "stops": None,
+                "vehicles": None,
+                "alerts": None,
+                "last_refresh": 0.0
+            }
+        except Exception as e:
+            print(f"Error loading Passio system {system_id}:", e)
+            raise HTTPException(status_code=500, detail=f"Passio system {system_id} could not be loaded")
+    return _CACHE[system_id]
 
-
-def _refresh_system_data(force: bool = False):
-    """
-    Refresh routes / stops / vehicles / alerts every _REFRESH_SECONDS seconds.
-    """
-    global _ROUTES, _STOPS, _VEHICLES, _ALERTS, _LAST_REFRESH
-    _ensure_system()
-
+def _refresh_system_data(system_id: int, force: bool = False):
+    cache_entry = _ensure_system(system_id)
     now = time.time()
-    if not force and now - _LAST_REFRESH < _REFRESH_SECONDS and _ROUTES is not None:
+    if not force and now - cache_entry["last_refresh"] < _REFRESH_SECONDS and cache_entry["routes"] is not None:
         return
 
-    _ROUTES = system.getRoutes()
-    _STOPS = system.getStops()
-    _VEHICLES = system.getVehicles()
-    _ALERTS = system.getSystemAlerts()
-    _LAST_REFRESH = now
+    sys = cache_entry["system"]
+    try:
+        cache_entry["routes"] = sys.getRoutes()
+        cache_entry["stops"] = sys.getStops()
+        cache_entry["vehicles"] = sys.getVehicles()
+        cache_entry["alerts"] = sys.getSystemAlerts()
+        cache_entry["last_refresh"] = now
+    except Exception as e:
+        print(f"Error refreshing data for system {system_id}:", e)
 
-
-def _get_data():
-    _refresh_system_data()
-
-    return _ROUTES or [], _STOPS or [], _VEHICLES or [], _ALERTS or []
+def _get_data(system_id: int):
+    _refresh_system_data(system_id)
+    c = _CACHE[system_id]
+    return c["routes"] or [], c["stops"] or [], c["vehicles"] or [], c["alerts"] or []
 
 
 def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -144,6 +148,7 @@ def _build_route_payloads(routes, vehicles):
 
 @app.get("/routes/nearby")
 def get_nearby_routes(
+    system_id: int = Query(..., description="Passio System ID"),
     lat: float | None = Query(default=None),
     lng: float | None = Query(default=None),
     radius_m: float = Query(default=1600, description="Search radius (~1 mile)"),
@@ -156,7 +161,7 @@ def get_nearby_routes(
     If lat/lng are not provided:
       • just return all routes with active vehicle counts
     """
-    routes, stops, vehicles, _ = _get_data() 
+    routes, stops, vehicles, _ = _get_data(system_id) 
 
     base_routes, route_by_any_id = _build_route_payloads(routes, vehicles)
 
@@ -211,11 +216,11 @@ def get_nearby_routes(
 
 
 @app.get("/stops/all")
-def get_all_stops():
+def get_all_stops(system_id: int = Query(..., description="Passio System ID")):
     """
     All stops for UGA system (used to populate the Saved Stops checklist).
     """
-    routes, stops, vehicles, _ = _get_data()  
+    routes, stops, vehicles, _ = _get_data(system_id)  
 
     payload = []
     for s in stops:
@@ -233,6 +238,7 @@ def get_all_stops():
 
 @app.get("/stops/details")
 def get_stops_details(
+    system_id: int = Query(..., description="Passio System ID"),
     ids: str = Query(..., description="Comma-separated Passio stop IDs"),
 ):
     """
@@ -241,7 +247,7 @@ def get_stops_details(
 
     This powers the Saved Stops panel in the authenticated view.
     """
-    routes, stops, vehicles, _ = _get_data() 
+    routes, stops, vehicles, _ = _get_data(system_id) 
 
     wanted_ids = {s for s in ids.split(",") if s}
 
@@ -276,11 +282,11 @@ def get_stops_details(
 
 
 @app.get("/alerts")
-def get_system_alerts():
+def get_system_alerts(system_id: int = Query(..., description="Passio System ID")):
     """
     Returns a list of active system alerts.
     """
-    _, _, _, alerts = _get_data() 
+    _, _, _, alerts = _get_data(system_id) 
     
     current_time = datetime.now()
     active_alerts = []

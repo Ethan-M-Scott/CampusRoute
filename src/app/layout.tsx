@@ -7,7 +7,7 @@ import ModalDialog from '../components/ModalDialog';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'RedRoute - UGA Traffic Monitoring',
+  title: 'CampusRoute - UGA Traffic Monitoring',
   description:
     'Real-time traffic analysis around UGA campus. Plan routes, avoid congestion, track buses, get alerts.',
 };
@@ -20,8 +20,10 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <AppStateProvider>{children}</AppStateProvider>
-        <ModalDialog />
+        <AppStateProvider>
+          {children}
+          <ModalDialog />
+        </AppStateProvider>
       </body>
     </html>
   );

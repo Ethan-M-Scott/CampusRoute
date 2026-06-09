@@ -2,6 +2,9 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "@/lib/auth-client";
+import { useAppState } from '@/src/components/AppStateContext';
+import { SCHOOLS } from '@/src/data/schools';
 
 type ApiStop = {
   id: string;
@@ -17,41 +20,64 @@ export default function AddSavedStopsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const { data: session, isPending } = useSession();
+  const { selectedSchool, setSelectedSchool } = useAppState();
+  const defaultSchool = SCHOOLS.find(s => s.id === "uga") || SCHOOLS[0];
+  const sessionSchool = session?.user?.school ? SCHOOLS.find(s => s.id === session.user.school) : null;
+  const school = isPending ? null : (sessionSchool || selectedSchool || defaultSchool);
+
+  // Load user's school from session
+  useEffect(() => {
+    if (session?.user && session.user.school) {
+      const sessionSchool = SCHOOLS.find(s => s.id === session.user.school);
+      if (sessionSchool) {
+        setSelectedSchool(sessionSchool);
+      }
+    }
+  }, [session, setSelectedSchool]);
+
   // Load all stops from backend
   useEffect(() => {
+    let isMounted = true;
     const loadAllStops = async () => {
+      setLoadingStops(true);
       try {
-        const res = await fetch("/api/stops/all");
+        const res = await fetch(`/api/stops/all?system_id=${school.passioId}`);
+        if (!res.ok) throw new Error("Failed to load stops");
         const data = await res.json();
-        setAllStops(data.stops || []);
+        if (isMounted) setAllStops(data.stops || []);
       } catch (err) {
         console.error("Failed to load all stops", err);
-        setError("Failed to load stops.");
+        if (isMounted) setError(`Failed to load stops. ${school?.name}'s transit system may not be supported or is offline.`);
+        if (isMounted) setAllStops([]);
       } finally {
-        setLoadingStops(false);
+        if (isMounted) setLoadingStops(false);
       }
     };
 
-    loadAllStops();
-  }, []);
+    if (school?.passioId) loadAllStops();
+    return () => { isMounted = false; };
+  }, [school?.passioId, school?.name]);
 
   // Load existing saved stops so checkboxes reflect current state
   useEffect(() => {
+    let isMounted = true;
     const loadSaved = async () => {
       try {
         const res = await fetch("/api/stops/mine");
         if (res.status === 401) return;
         const data = await res.json();
         const ids: string[] = (data.stops || []).map(
-          (s: any) => s.passioStopId
+          (s: { passioStopId: string }) => s.passioStopId
         );
-        setSelectedIds(ids);
+        if (isMounted) setSelectedIds(ids);
       } catch (err) {
         console.error("Failed to load existing saved stops", err);
       }
     };
 
     loadSaved();
+    return () => { isMounted = false; };
   }, []);
 
   const toggleStop = (id: string) => {
@@ -98,11 +124,11 @@ export default function AddSavedStopsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-blue-600 py-8">
       <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-lg p-8">
         <h1 className="text-2xl font-bold mb-2">Add Saved Stops</h1>
         <p className="text-gray-600 mb-6">
-          Choose the bus stops you care about most. RedRoute will show live
+          Choose the bus stops you care about most. CampusRoute will show live
           status for the routes serving these stops.
         </p>
 
@@ -152,7 +178,7 @@ export default function AddSavedStopsPage() {
             <button
               type="submit"
               disabled={saving}
-              className="px-6 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors disabled:opacity-60"
+              className="px-6 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-60"
             >
               {saving ? "Saving…" : "Save Stops"}
             </button>

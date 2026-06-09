@@ -111,7 +111,7 @@ export default function BusRoutesNearYou() {
   return (
     <div className="bg-white rounded-xl shadow-lg p-6">
       <div className="flex items-center gap-2 mb-4">
-        <Bus className="w-5 h-5 text-red-600" />
+        <Bus className="w-5 h-5 text-blue-600" />
         <h2 style={{ fontSize: "18px", fontWeight: 700 }}>Bus Routes Near You</h2>
       </div>
 
@@ -120,7 +120,7 @@ export default function BusRoutesNearYou() {
       )}
 
       {!loading && error && (
-        <p className="text-sm text-red-600">Failed to load routes.</p>
+        <p className="text-sm text-blue-600">Failed to load routes.</p>
       )}
 
       {!loading && !error && routes.length === 0 && (

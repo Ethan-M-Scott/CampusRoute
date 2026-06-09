@@ -4,8 +4,15 @@ import { NextRequest, NextResponse } from "next/server";
 const PASSIO_BACKEND_URL =
   process.env.PASSIO_BACKEND_URL ?? "http://127.0.0.1:5050";
 
-export async function GET(_req: NextRequest) {
-  const url = PASSIO_BACKEND_URL + "/stops/all";
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+  const systemId = searchParams.get("system_id");
+
+  if (!systemId) {
+    return NextResponse.json({ stops: [] });
+  }
+
+  const url = `${PASSIO_BACKEND_URL}/stops/all?system_id=${encodeURIComponent(systemId)}`;
 
   try {
     const res = await fetch(url, { cache: "no-store" });

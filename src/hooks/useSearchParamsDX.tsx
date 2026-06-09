@@ -14,7 +14,8 @@ export default function useSearchParamsDX(): [ReadonlyURLSearchParams, (updates:
             if (value !== undefined) updatedParams.set(name, value);
             else updatedParams.delete(name);
         }
-        router.push(pathname + updatedParams.size ? `?${updatedParams}` : "");
+        const searchString = updatedParams.toString();
+        router.push(pathname + (searchString ? `?${searchString}` : ""));
     };
 
     return [searchParams, setSearchParams];

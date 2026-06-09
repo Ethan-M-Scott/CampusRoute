@@ -1,26 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const PASSIO_BACKEND_URL = process.env.PASSIO_BACKEND_URL;
+const PASSIO_BACKEND_URL = process.env.PASSIO_BACKEND_URL ?? "http://127.0.0.1:5050";
 
 export async function GET(req: NextRequest) {
-  if (!PASSIO_BACKEND_URL) {
-    return NextResponse.json(
-      { error: "PASSIO_BACKEND_URL is not configured" },
-      { status: 500 }
-    );
-  }
-
   const { searchParams } = new URL(req.url);
   const ids = searchParams.get("ids");
+  const systemId = searchParams.get("system_id");
 
-  if (!ids) {
+  if (!ids || !systemId) {
     return NextResponse.json({ stops: [] });
   }
 
   try {
     const url = `${PASSIO_BACKEND_URL}/stops/details?ids=${encodeURIComponent(
       ids
-    )}`;
+    )}&system_id=${encodeURIComponent(systemId)}`;
     const res = await fetch(url);
 
     if (!res.ok) {

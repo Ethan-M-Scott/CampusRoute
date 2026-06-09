@@ -13,10 +13,9 @@ export default function SplashPage() {
   
   const onLogin = useCallback(() => setModal("login"), [setModal]);
   const onSignUp = useCallback(() => setModal("register"), [setModal]);
-  const onContinue = useCallback(() => router.push('/home'), [router]);
   
   return (
-      <div className="min-h-screen relative overflow-hidden" style={{background: 'linear-gradient(135deg, #EF4444 0%, #DC2626 50%, black 100%)'}}>
+      <div className="min-h-screen relative overflow-hidden" style={{background: 'linear-gradient(135deg, #1e40af 0%, #0c4a6e 50%, #000817 100%)'}}>
       {/*css classes used within the component*/}
       <style href="splash-page" precedence="medium">{`
         .splash-button {
@@ -32,44 +31,29 @@ export default function SplashPage() {
         }
       `}</style>
 
-      {/* Arch image inside circular frame */}
-      <div className="absolute top-20 left-32 w-64 h-64 rounded-full border-4 border-white overflow-hidden">
-        <div className="relative w-full h-full">
-          <Image src="/images/ArchPhoto.png" alt="Arch" fill className="object-cover" priority/>
-        </div>
-      </div>
 
-      {/* G Photo image inside circular frame*/}
-      <div className="absolute bottom-40 right-20 w-64 h-64 rounded-full border-4 border-white overflow-hidden">
-        <div className="relative w-full h-full">
-          <Image src="/images/GeorgiaG.jpg" alt="Georgia G" fill className="object-cover" priority/>
-        </div>
-      </div>
-      
-      {/* Decorative circle */}
-      <div className="absolute top-1/2 left-1/3 w-72 h-72 rounded-full border-4 border-white opacity-10" />
 
       {/* Main content */}
       <div className="relative flex flex-col items-center justify-center min-h-screen px-8">
         {/* Logo container */}
         <div className="relative mb-8">
           <div className="w-32 h-32 rounded-full bg-white shadow-2xl flex items-center justify-center">
-            <MapPin className="w-16 h-16 text-red-600" strokeWidth={2.5} />
+            <MapPin className="w-16 h-16 text-blue-600" strokeWidth={2.5} />
           </div>
-          <div className="absolute -bottom-2 -right-2 w-12 h-12 rounded-full bg-red-600 flex items-center justify-center shadow-lg">
+          <div className="absolute -bottom-2 -right-2 w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center shadow-lg">
             <Bus className="w-6 h-6 text-white" />
           </div>
-          <div className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-yellow-400 shadow-lg" />
+          <div className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-slate-400 shadow-lg" />
         </div>
 
         {/* Title */}
         <h1 className="text-white mb-4 text-center" style={{ fontSize: '60px', fontWeight: 700 }}>
-          RedRoute
+          CampusRoute
         </h1>
 
         {/* Subtitle */}
-        <p className="text-red-400 mb-8 text-center" style={{ fontSize: '20px', fontWeight: 300 }}>
-          Navigate Athens Like a Pro
+        <p className="text-blue-300 mb-8 text-center" style={{ fontSize: '20px', fontWeight: 300 }}>
+          Navigate Your Campus Like a Pro
         </p>
 
         {/* Description card */}
@@ -81,7 +65,7 @@ export default function SplashPage() {
           justifyContent: 'center',
         }}>
           <p className="text-white" style={{ fontSize: '16px', lineHeight: '1.6' }}>
-            Real-time traffic analysis around UGA campus. Plan routes, avoid
+            Real-time traffic analysis around campus. Plan routes, avoid
             congestion, track buses, get alerts.
           </p>
         </div>
@@ -106,16 +90,12 @@ export default function SplashPage() {
 
         {/* Buttons side by side */}
         <div className="flex gap-4 mt-8">
-          <button onClick={onLogin} className="splash-button bg-white text-red-600 rounded-full shadow-xl hover:scale-105 transition-all">
+          <button onClick={onLogin} className="splash-button bg-white text-blue-600 rounded-full shadow-xl hover:scale-105 transition-all">
             Login
           </button>
 
-          <button onClick={onSignUp} className="splash-button bg-white text-red-600 rounded-full shadow-xl hover:scale-105 transition-all">
+          <button onClick={onSignUp} className="splash-button bg-white text-blue-600 rounded-full shadow-xl hover:scale-105 transition-all">
             Sign Up
-          </button>
-
-          <button onClick={onContinue} className="splash-button bg-white text-red-600 rounded-full shadow-xl hover:scale-105 transition-all">
-            Continue Without Login
           </button>
         </div>
       </div>

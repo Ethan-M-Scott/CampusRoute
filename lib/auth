@@ -9,5 +9,13 @@ export const auth = betterAuth({
     emailAndPassword: { 
         enabled: true
     },
+    user: {
+        additionalFields: {
+            school: {
+                type: "string",
+                required: false,
+            }
+        }
+    },
     plugins: [nextCookies()] // nextCookies MUST be the last element in the plugins array
 });

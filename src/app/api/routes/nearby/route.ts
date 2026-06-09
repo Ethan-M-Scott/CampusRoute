@@ -9,8 +9,14 @@ export async function GET(req: NextRequest) {
 
   const lat = searchParams.get("lat");
   const lng = searchParams.get("lng");
+  const systemId = searchParams.get("system_id");
+
+  if (!systemId) {
+    return NextResponse.json({ routes: [] });
+  }
 
   const query = new URLSearchParams();
+  query.set("system_id", systemId);
   if (lat) query.set("lat", lat);
   if (lng) query.set("lng", lng);
 
