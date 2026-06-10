@@ -50,9 +50,9 @@ export const auth = betterAuth({
                 </div>
               `,
             });
-            console.log(`✅ Welcome email successfully sent to ${user.email} (Message ID: ${info.messageId})\n`);
+            console.log(`Welcome email successfully sent to ${user.email} (Message ID: ${info.messageId})\n`);
           } catch (error) {
-            console.error("❌ Failed to send notification email:", error);
+            console.error("Failed to send notification email:", error);
           }
         }
       }
