@@ -25,7 +25,6 @@ const SignUpModal = ({dialog}: {dialog: HTMLDialogElement | null}) => {
       let schoolId = formData.get("school")?.toString();
       const password = formData.get("password")?.toString();
 
-      // If they typed a school name but didn't explicitly click the dropdown item
       if (!schoolId && schoolSearch) {
         const match = SCHOOLS.find(s => s.name.toLowerCase() === schoolSearch.trim().toLowerCase() || s.id.toLowerCase() === schoolSearch.trim().toLowerCase());
         if (match) {
@@ -68,11 +67,11 @@ const SignUpModal = ({dialog}: {dialog: HTMLDialogElement | null}) => {
       setError(e instanceof Error ? e.message : "account could not be created with the provided credentials");
     }
   }, [router, setError, setSelectedSchool, dialog, schoolSearch]);
-
-  const filteredSchools = SCHOOLS.filter(s => s.name.toLowerCase().includes(schoolSearch.toLowerCase()));
   
+  const filteredSchools = SCHOOLS.filter(s => s.name.toLowerCase().includes(schoolSearch.toLowerCase()));
+
   return (
-    <form onSubmit={onSubmit} className="p-8 w-96 max-h-96 overflow-y-auto">
+    <form onSubmit={onSubmit} className="p-8 w-96 min-h-[32rem]">
       <h2 className="text-xl font-bold mb-4">Sign Up</h2>
       
       <label htmlFor="email">Email:</label>
@@ -92,16 +91,19 @@ const SignUpModal = ({dialog}: {dialog: HTMLDialogElement | null}) => {
           onChange={(e) => {
             setSchoolSearch(e.target.value);
             setIsSchoolDropdownOpen(true);
-            setSelectedSchoolId(""); // reset selected if they type
+            setSelectedSchoolId("");
           }}
           onFocus={() => setIsSchoolDropdownOpen(true)}
           onBlur={() => setIsSchoolDropdownOpen(false)}
+          required={!selectedSchoolId}
         />
-        {/* Hidden input keeps native form submissions working */}
         <input type="hidden" name="school" value={selectedSchoolId} />
         
         {isSchoolDropdownOpen && (
-          <div className="absolute z-10 w-full bg-white border rounded mt-1 max-h-48 overflow-y-auto shadow-lg">
+          <div 
+            className="absolute z-10 w-full bg-white border rounded mt-1 max-h-48 overflow-y-auto shadow-lg"
+            onMouseDown={(e) => e.preventDefault()}
+          >
             {filteredSchools.length > 0 ? (
               filteredSchools.map((school) => (
                 <div 
