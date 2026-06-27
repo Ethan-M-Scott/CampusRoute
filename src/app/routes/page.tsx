@@ -55,6 +55,13 @@ type StopDetail = {
   routes: ApiRoute[];
 };
 
+type SystemInfo = {
+  id?: number;
+  name?: string | null;
+  username?: string | null;
+  goAgencyName?: string | null;
+};
+
 // HELPER FUNCTIONS 
 
 function formatRouteStatus(route: ApiRoute, distanceMiles?: number | null) {
@@ -219,6 +226,7 @@ export default function RoutesPage() {
   const [loadingNearby, setLoadingNearby] = useState(false);
   const [loadingAllRoutes, setLoadingAllRoutes] = useState(false);
   const [loadingSaved, setLoadingSaved] = useState(true);
+  const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
 
   const [userLocation, setUserLocation] = useState<{
     lat: number;
@@ -239,6 +247,35 @@ export default function RoutesPage() {
       }
     }
   }, [session, setSelectedSchool]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadSystemInfo = async () => {
+      if (!school?.passioId) {
+        if (isMounted) setSystemInfo(null);
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/systems/details?system_id=${school.passioId}`);
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+
+        const data: SystemInfo = await res.json();
+        if (isMounted) setSystemInfo(data);
+      } catch (err) {
+        console.error("Failed to load system metadata", err);
+        if (isMounted) setSystemInfo(null);
+      }
+    };
+
+    loadSystemInfo();
+    return () => {
+      isMounted = false;
+    };
+  }, [school?.passioId]);
 
   useEffect(() => {
     let isMounted = true;
@@ -486,7 +523,11 @@ export default function RoutesPage() {
   const showNoNearbyMessage =
     usedLocation && nearbyRoutes.length === 0 && allRoutes.length > 0;
 
-  const mapEmbedUrl = school ? `https://maps.google.com/maps?q=${school.latitude},${school.longitude}&z=15&output=embed` : "";
+  const passioAgency = systemInfo?.username?.trim() || "";
+  const mapEmbedUrl = school && passioAgency
+    ? `https://${passioAgency}.passiogo.com/?zoom=14.3&lat=${school.latitude}&lng=${school.longitude}&boldRoutes=1`
+    : "";
+  const passioMapHeaderCropPx = 92;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -534,11 +575,29 @@ export default function RoutesPage() {
                   background: "linear-gradient(135deg, #E5E7EB 0%, #D1D5DB 100%)",
                 }}
               >
-                {school ? (
-                  <iframe key={mapEmbedUrl} className="w-full h-full rounded-lg flex flex-col items-center justify-center" src={mapEmbedUrl} width="800" height="800" 
-                  style={{border:0}} loading="lazy" referrerPolicy="no-referrer-when-downgrade"></iframe>
+                {school && mapEmbedUrl ? (
+                  <div
+                    className="relative w-full h-full overflow-hidden rounded-lg"
+                    aria-label={`${school.name} Passio Go map`}
+                  >
+                    <iframe
+                      key={mapEmbedUrl}
+                      className="absolute left-0 w-full rounded-lg"
+                      src={mapEmbedUrl}
+                      width="800"
+                      height="800"
+                      style={{
+                        border: 0,
+                        top: `-${passioMapHeaderCropPx}px`,
+                        height: `calc(100% + ${passioMapHeaderCropPx}px)`,
+                      }}
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                      title={`${school.name} Passio Go map`}
+                    />
+                  </div>
                 ) : (
-                  <p className="text-gray-600 font-medium">Loading Map...</p>
+                  <p className="text-gray-600 font-medium">Loading Passio Go map...</p>
                 )}
               </div>
             </div>

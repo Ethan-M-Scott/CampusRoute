@@ -66,6 +66,17 @@ def _get_data(system_id: int):
     return c["routes"] or [], c["stops"] or [], c["vehicles"] or [], c["alerts"] or []
 
 
+def _get_system_metadata(system_id: int):
+    cache_entry = _ensure_system(system_id)
+    system = cache_entry["system"]
+    return {
+        "id": getattr(system, "id", system_id),
+        "name": getattr(system, "name", None),
+        "username": getattr(system, "username", None),
+        "goAgencyName": getattr(system, "goAgencyName", None),
+    }
+
+
 def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """
     Straight-line distance between two coordinates, in meters.
@@ -213,6 +224,14 @@ def get_nearby_routes(
         "routes": base_routes,
         "stops": nearby_stops,
     }
+
+
+@app.get("/system")
+def get_system(system_id: int = Query(..., description="Passio System ID")):
+    """
+    Returns basic metadata for a Passio system, including the URL-friendly username.
+    """
+    return _get_system_metadata(system_id)
 
 
 @app.get("/stops/all")
