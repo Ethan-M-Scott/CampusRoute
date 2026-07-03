@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 import math
 import time
+import requests
 import passiogo
 from datetime import datetime 
 
@@ -18,6 +19,7 @@ app.add_middleware(
 
 _CACHE = {}
 _REFRESH_SECONDS = 25.0
+_DEFAULT_BUS_SPEED_MPH = 12.0
 
 @app.get("/")
 def read_root():
@@ -37,6 +39,7 @@ def _ensure_system(system_id: int):
                 "stops": None,
                 "vehicles": None,
                 "alerts": None,
+                "route_stop_sequences": None,
                 "last_refresh": 0.0
             }
         except Exception as e:
@@ -55,7 +58,9 @@ def _refresh_system_data(system_id: int, force: bool = False):
         cache_entry["routes"] = sys.getRoutes()
         cache_entry["stops"] = sys.getStops()
         cache_entry["vehicles"] = sys.getVehicles()
+        cache_entry["raw_vehicles"] = _get_raw_vehicle_records(system_id)
         cache_entry["alerts"] = sys.getSystemAlerts()
+        cache_entry["route_stop_sequences"] = None
         cache_entry["last_refresh"] = now
     except Exception as e:
         print(f"Error refreshing data for system {system_id}:", e)
@@ -66,16 +71,278 @@ def _get_data(system_id: int):
     return c["routes"] or [], c["stops"] or [], c["vehicles"] or [], c["alerts"] or []
 
 
-def _get_system_metadata(system_id: int):
+def _get_vehicle_records(system_id: int):
     cache_entry = _ensure_system(system_id)
-    system = cache_entry["system"]
-    return {
-        "id": getattr(system, "id", system_id),
-        "name": getattr(system, "name", None),
-        "username": getattr(system, "username", None),
-        "goAgencyName": getattr(system, "goAgencyName", None),
-    }
+    records = cache_entry.get("raw_vehicles")
+    if records:
+        return records
+    return cache_entry.get("vehicles") or []
 
+
+def _normalize_id(value):
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _vehicle_value(vehicle, key: str, default=None):
+    if isinstance(vehicle, dict):
+        return vehicle.get(key, default)
+    return getattr(vehicle, key, default)
+
+
+def _vehicle_latitude(vehicle):
+    latitude = _vehicle_value(vehicle, "latitude", None)
+    if latitude is None and not isinstance(vehicle, dict):
+        latitude = getattr(vehicle, "longitude", None)
+    if latitude is None:
+        return None
+    try:
+        return float(latitude)
+    except (TypeError, ValueError):
+        return None
+
+
+def _vehicle_longitude(vehicle):
+    longitude = _vehicle_value(vehicle, "longitude", None)
+    if longitude is None and isinstance(vehicle, dict):
+        return None
+    if longitude is None:
+        return None
+    try:
+        return float(longitude)
+    except (TypeError, ValueError):
+        return None
+
+
+def _build_route_vehicle_map(routes, vehicles):
+    route_vehicle_map: dict[str, list] = {}
+
+    for route in routes:
+        route_ids = {
+            _normalize_id(getattr(route, "id", None)),
+            _normalize_id(getattr(route, "myid", None)),
+        }
+        route_ids.discard(None)
+
+        if not route_ids:
+            continue
+
+        matched_vehicles = []
+        for vehicle in vehicles:
+            vehicle_route_id = _normalize_id(_vehicle_value(vehicle, "routeId", None))
+            if vehicle_route_id in route_ids:
+                matched_vehicles.append(vehicle)
+
+        for route_id in route_ids:
+            route_vehicle_map[route_id] = matched_vehicles
+
+    return route_vehicle_map
+
+
+def _build_route_stop_sequences(system_id: int, routes):
+    cache_entry = _ensure_system(system_id)
+    if cache_entry.get("route_stop_sequences") is not None:
+        return cache_entry["route_stop_sequences"]
+
+    route_stop_sequences: dict[str, list[dict]] = {}
+
+    for route in routes:
+        try:
+            route_stops = route.getStops() or []
+        except Exception as e:
+            print(f"Error loading stops for route {getattr(route, 'id', None)}:", e)
+            route_stops = []
+
+        stop_payloads = []
+        for stop in route_stops:
+            stop_lat = getattr(stop, "latitude", None)
+            stop_lng = getattr(stop, "longitude", None)
+            if stop_lat is None or stop_lng is None:
+                continue
+
+            stop_payloads.append(
+                {
+                    "id": _normalize_id(getattr(stop, "id", None)),
+                    "name": getattr(stop, "name", "Unnamed stop"),
+                    "latitude": float(stop_lat),
+                    "longitude": float(stop_lng),
+                }
+            )
+
+        for key in (
+            _normalize_id(getattr(route, "id", None)),
+            _normalize_id(getattr(route, "myid", None)),
+        ):
+            if key is not None:
+                route_stop_sequences[key] = stop_payloads
+
+    cache_entry["route_stop_sequences"] = route_stop_sequences
+    return route_stop_sequences
+
+
+def _latlng_to_xy(lat: float, lng: float, ref_lat: float) -> tuple[float, float]:
+    radius_m = 6371000.0
+    x = math.radians(lng) * radius_m * math.cos(math.radians(ref_lat))
+    y = math.radians(lat) * radius_m
+    return x, y
+
+
+def _bearing_degrees(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    dlng = math.radians(lng2 - lng1)
+    y = math.sin(dlng) * math.cos(phi2)
+    x = math.cos(phi1) * math.sin(phi2) - math.sin(phi1) * math.cos(phi2) * math.cos(dlng)
+    bearing = math.degrees(math.atan2(y, x))
+    return (bearing + 360.0) % 360.0
+
+
+def _angle_difference(a: float, b: float) -> float:
+    return abs((a - b + 180.0) % 360.0 - 180.0)
+
+
+def _speed_mps(speed_mph: float | None) -> float:
+    speed = speed_mph if speed_mph is not None else _DEFAULT_BUS_SPEED_MPH
+    if speed <= 0:
+        return 0.0
+    return speed * 0.44704
+
+
+def _estimate_next_stop_for_vehicle(vehicle, route_stops: list[dict]) -> tuple[str | None, int | None, float | None]:
+    if len(route_stops) < 2:
+        return None, None, None
+
+    vehicle_lat = _vehicle_latitude(vehicle)
+    vehicle_lng = _vehicle_longitude(vehicle)
+    if vehicle_lat is None or vehicle_lng is None:
+        return None, None, None
+
+    course_value = getattr(vehicle, "calculatedCourse", None)
+    try:
+        course = float(course_value) if course_value is not None else None
+    except (TypeError, ValueError):
+        course = None
+
+    try:
+        speed_value = _vehicle_value(vehicle, "speed", None)
+        vehicle_speed = float(speed_value) if speed_value is not None else None
+    except (TypeError, ValueError):
+        vehicle_speed = None
+
+    speed_mps = _speed_mps(vehicle_speed)
+    if speed_mps <= 0:
+        speed_mps = _speed_mps(None)
+
+    best_segment = None
+    best_score = None
+
+    for index in range(len(route_stops) - 1):
+        start = route_stops[index]
+        end = route_stops[index + 1]
+
+        ref_lat = (vehicle_lat + start["latitude"] + end["latitude"]) / 3.0
+        px, py = _latlng_to_xy(vehicle_lat, vehicle_lng, ref_lat)
+        ax, ay = _latlng_to_xy(start["latitude"], start["longitude"], ref_lat)
+        bx, by = _latlng_to_xy(end["latitude"], end["longitude"], ref_lat)
+
+        vx = bx - ax
+        vy = by - ay
+        wx = px - ax
+        wy = py - ay
+
+        seg_len_sq = vx * vx + vy * vy
+        if seg_len_sq == 0:
+            continue
+
+        t = max(0.0, min(1.0, (wx * vx + wy * vy) / seg_len_sq))
+        proj_x = ax + t * vx
+        proj_y = ay + t * vy
+
+        distance_to_segment = math.hypot(px - proj_x, py - proj_y)
+        score = distance_to_segment
+
+        if course is not None:
+            segment_bearing = _bearing_degrees(start["latitude"], start["longitude"], end["latitude"], end["longitude"])
+            score += _angle_difference(course, segment_bearing) * 12.0
+
+        if best_score is None or score < best_score:
+            best_score = score
+            best_segment = {
+                "index": index,
+                "distance_to_next_stop_m": math.hypot(bx - px, by - py),
+            }
+
+    if best_segment is None:
+        return None, None, None
+
+    eta_minutes = max(1, int(round(best_segment["distance_to_next_stop_m"] / speed_mps / 60.0)))
+    next_stop = route_stops[best_segment["index"] + 1]
+    return next_stop["name"], eta_minutes, best_segment["distance_to_next_stop_m"]
+
+
+def _calculate_on_road_distance_to_stop(vehicle, target_stop_id: str, route_stops: list[dict]) -> float | None:
+    if not route_stops:
+        return None
+
+    # 1. Find the vehicle's position relative to the route segments.
+    _, _, distance_to_next_stop_m = _estimate_next_stop_for_vehicle(vehicle, route_stops)
+    if distance_to_next_stop_m is None:
+        return None
+
+    # Find the index of the next stop and the target stop in the sequence.
+    next_stop_index = -1
+    target_stop_index = -1
+    for i, stop in enumerate(route_stops):
+        if stop["id"] == _estimate_next_stop_for_vehicle(vehicle, route_stops)[0]:
+             # This is brittle, but _estimate_next_stop_for_vehicle only returns name.
+             # A better implementation would return the stop object or ID.
+             # For now, we find the *first* match by name.
+            if next_stop_index == -1:
+                next_stop_index = i
+        if str(stop.get("id")) == str(target_stop_id):
+            target_stop_index = i
+
+    if next_stop_index == -1 or target_stop_index == -1:
+        return None # Vehicle's next stop or target stop not on this route sequence.
+
+    # 2. If the target stop is the vehicle's next stop, the distance is simple.
+    if next_stop_index == target_stop_index:
+        return distance_to_next_stop_m
+
+    # 3. If target is further along, sum segment distances.
+    total_distance_m = distance_to_next_stop_m
+    
+    # Iterate through segments from the next stop to the one before the target stop.
+    current_idx = next_stop_index
+    while current_idx != target_stop_index:
+        start_stop = route_stops[current_idx]
+        next_idx = (current_idx + 1) % len(route_stops)
+        end_stop = route_stops[next_idx]
+        
+        total_distance_m += _haversine(start_stop["latitude"], start_stop["longitude"], end_stop["latitude"], end_stop["longitude"])
+        current_idx = next_idx
+        
+    return total_distance_m
+
+
+def _find_nearest_vehicle_to_stop(stop: dict, vehicles: list) -> tuple[float | None, float | None]:
+    stop_lat = stop.get("latitude")
+    stop_lng = stop.get("longitude")
+    if stop_lat is None or stop_lng is None:
+        return None, None
+
+    min_dist_m: float | None = None
+
+    for v in vehicles:
+        v_lat, v_lng = getattr(v, "latitude", None), getattr(v, "longitude", None)
+        if v_lat is not None and v_lng is not None:
+            dist_m = _haversine(stop_lat, stop_lng, v_lat, v_lng)
+            if min_dist_m is None or dist_m < min_dist_m:
+                min_dist_m = dist_m
+    
+    return min_dist_m, (min_dist_m / 1609.34) if min_dist_m is not None else None
 
 def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     """
@@ -92,6 +359,81 @@ def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     )
     c = 2.0 * math.atan2(math.sqrt(a), math.sqrt(1.0 - a))
     return R * c
+
+def _estimate_route_eta(route_stops: list[dict], vehicles: list) -> tuple[str | None, int | None]:
+    best_name = None
+    best_eta = None
+
+    for vehicle in vehicles:
+        next_stop_name, eta_minutes, _ = _estimate_next_stop_for_vehicle(vehicle, route_stops)
+        if next_stop_name is None or eta_minutes is None:
+            continue
+
+        if best_eta is None or eta_minutes < best_eta:
+            best_name = next_stop_name
+            best_eta = eta_minutes
+
+    return best_name, best_eta
+
+
+def _closest_bus_distance_to_stop_miles(
+    stop_lat: float,
+    stop_lng: float,
+    route_keys: set[str],
+    vehicles: list,
+) -> float | None:
+    closest_distance = None
+
+    for vehicle in vehicles:
+        vehicle_route_id = _normalize_id(_vehicle_value(vehicle, "routeId", None))
+        if vehicle_route_id is None or vehicle_route_id not in route_keys:
+            continue
+
+        vehicle_lat = _vehicle_latitude(vehicle)
+        vehicle_lng = _vehicle_longitude(vehicle)
+        if vehicle_lat is None or vehicle_lng is None:
+            continue
+
+        distance_miles = _haversine(stop_lat, stop_lng, float(vehicle_lat), float(vehicle_lng)) / 1609.34
+        if closest_distance is None or distance_miles < closest_distance:
+            closest_distance = distance_miles
+
+    return closest_distance
+
+
+def _get_system_metadata(system_id: int):
+    cache_entry = _ensure_system(system_id)
+    system = cache_entry["system"]
+    return {
+        "id": getattr(system, "id", system_id),
+        "name": getattr(system, "name", None),
+        "username": getattr(system, "username", None),
+        "goAgencyName": getattr(system, "goAgencyName", None),
+    }
+
+
+def _get_raw_vehicle_records(system_id: int) -> list[dict]:
+    try:
+        response = requests.post(
+            "https://passiogo.com/mapGetData.php?getBuses=2",
+            json={"s0": str(system_id), "sA": 1},
+            timeout=20,
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except Exception as e:
+        print(f"Error loading raw vehicle data for system {system_id}:", e)
+        return []
+
+    records: list[dict] = []
+    for buses in (payload.get("buses") or {}).values():
+        if not buses:
+            continue
+        vehicle = buses[0]
+        if isinstance(vehicle, dict):
+            records.append(vehicle)
+
+    return records
 
 
 def _build_vehicle_index(vehicles):
@@ -111,12 +453,13 @@ def _build_vehicle_index(vehicles):
     return counts
 
 
-def _build_route_payloads(routes, vehicles):
+def _build_route_payloads(system_id: int, routes, vehicles):
     """
     Build base payload for every route and a lookup dict that can be accessed by
     either route.id or route.myid (because stops.routesAndPositions uses myid).
     """
-    vehicles_by_route_id = _build_vehicle_index(vehicles)
+    route_vehicle_map = _build_route_vehicle_map(routes, vehicles)
+    route_stop_sequences = _build_route_stop_sequences(system_id, routes) if routes else {}
 
     base_routes = []
     route_by_any_id: dict[str, dict] = {}
@@ -127,11 +470,28 @@ def _build_route_payloads(routes, vehicles):
         myid = getattr(r, "myid", None)
 
         # Active vehicles: try to match both id and myid to whatever vehicle.routeId is.
-        active = 0
-        if rid is not None:
-            active += vehicles_by_route_id.get(str(rid), 0)
-        if myid is not None and myid != rid:
-            active += vehicles_by_route_id.get(str(myid), 0)
+        route_ids = {rid, myid}
+        route_ids.discard(None)
+
+        matched_vehicles = []
+        seen_vehicle_ids = set()
+        for route_id in route_ids:
+            for vehicle in route_vehicle_map.get(str(route_id), []):
+                vehicle_key = _normalize_id(getattr(vehicle, "id", None)) or str(id(vehicle))
+                if vehicle_key in seen_vehicle_ids:
+                    continue
+                seen_vehicle_ids.add(vehicle_key)
+                matched_vehicles.append(vehicle)
+
+        active = len(matched_vehicles)
+
+        route_stops = []
+        for route_id in route_ids:
+            route_stops = route_stop_sequences.get(str(route_id), [])
+            if route_stops:
+                break
+
+        next_stop_name, next_stop_eta = _estimate_route_eta(route_stops, matched_vehicles)
 
         payload = {
             "id": str(rid) if rid is not None else str(myid),
@@ -140,10 +500,8 @@ def _build_route_payloads(routes, vehicles):
             "serviceTime": getattr(r, "serviceTime", None),
             "activeVehicles": active,
             "status": "Buses on route" if active > 0 else "No buses currently on route",
-            # We are NOT computing true next-stop ETAs here; leave these null so the
-            # frontend falls back to the status text.
-            "nextStopName": None,
-            "nextStopEtaMinutes": None,
+            "nextStopName": next_stop_name,
+            "nextStopEtaMinutes": next_stop_eta,
         }
 
         base_routes.append(payload)
@@ -172,9 +530,10 @@ def get_nearby_routes(
     If lat/lng are not provided:
       • just return all routes with active vehicle counts
     """
-    routes, stops, vehicles, _ = _get_data(system_id) 
+    routes, stops, _, _ = _get_data(system_id) 
+    vehicle_records = _get_vehicle_records(system_id)
 
-    base_routes, route_by_any_id = _build_route_payloads(routes, vehicles)
+    base_routes, route_by_any_id = _build_route_payloads(system_id, routes, vehicle_records)
 
     # No location → list of routes only.
     if lat is None or lng is None:
@@ -266,11 +625,14 @@ def get_stops_details(
 
     This powers the Saved Stops panel in the authenticated view.
     """
-    routes, stops, vehicles, _ = _get_data(system_id) 
+    routes, stops, _, _ = _get_data(system_id) 
+    vehicle_records = _get_vehicle_records(system_id)
 
     wanted_ids = {s for s in ids.split(",") if s}
 
-    base_routes, route_by_any_id = _build_route_payloads(routes, vehicles)
+    base_routes, route_by_any_id = _build_route_payloads(system_id, routes, vehicle_records)
+    route_vehicle_map = _build_route_vehicle_map(routes, vehicle_records)
+    route_stop_sequences = _build_route_stop_sequences(system_id, routes)
 
     result = []
 
@@ -279,20 +641,52 @@ def get_stops_details(
         if sid is None or str(sid) not in wanted_ids:
             continue
 
+        stop_lat = getattr(s, "latitude", None)
+        stop_lng = getattr(s, "longitude", None)
+
         routes_and_positions = getattr(s, "routesAndPositions", {}) or {}
         stop_routes = []
 
         for key in routes_and_positions.keys():
             r_payload = route_by_any_id.get(str(key))
             if r_payload:
-                stop_routes.append(r_payload)
+                route_vehicles = route_vehicle_map.get(str(key), [])
+                payload_copy = r_payload.copy()
+
+                min_dist_m: float | None = None
+                closest_speed_mph: float | None = None
+                if stop_lat is not None and stop_lng is not None:
+                    for vehicle in route_vehicles:
+                        vehicle_lat = _vehicle_latitude(vehicle)
+                        vehicle_lng = _vehicle_longitude(vehicle)
+                        if vehicle_lat is None or vehicle_lng is None:
+                            continue
+
+                        dist_m = _haversine(float(stop_lat), float(stop_lng), float(vehicle_lat), float(vehicle_lng))
+                        if min_dist_m is None or dist_m < min_dist_m:
+                            min_dist_m = dist_m
+                            try:
+                                speed_value = _vehicle_value(vehicle, "speed", None)
+                                closest_speed_mph = float(speed_value) if speed_value is not None else None
+                            except (TypeError, ValueError):
+                                closest_speed_mph = None
+
+                payload_copy["closestBusDistanceMiles"] = (
+                    min_dist_m / 1609.34 if min_dist_m is not None else None
+                )
+                if min_dist_m is not None:
+                    speed_mph = closest_speed_mph if closest_speed_mph and closest_speed_mph > 0 else _DEFAULT_BUS_SPEED_MPH
+                    payload_copy["arrivalEtaMinutes"] = max(1, int(math.ceil((min_dist_m / 1609.34) / speed_mph * 60.0)))
+                else:
+                    payload_copy["arrivalEtaMinutes"] = None
+                stop_routes.append(payload_copy)
 
         result.append(
             {
                 "id": sid,
                 "name": getattr(s, "name", "Unnamed stop"),
-                "latitude": getattr(s, "latitude", None),
-                "longitude": getattr(s, "longitude", None),
+                "latitude": stop_lat,
+                "longitude": stop_lng,
                 "routes": stop_routes,
             }
         )

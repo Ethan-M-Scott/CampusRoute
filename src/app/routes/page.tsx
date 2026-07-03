@@ -31,6 +31,8 @@ type ApiRoute = {
   status: string;
   nextStopName?: string | null;
   nextStopEtaMinutes?: number | null;
+  closestBusDistanceMiles?: number | null;
+  arrivalEtaMinutes?: number | null;
 };
 
 type ApiStop = {
@@ -81,47 +83,21 @@ function formatRouteStatus(route: ApiRoute, distanceMiles?: number | null) {
 }
 
 /**
- * Haversine helper (approx) in miles, used only for user ↔ stop distance.
+ * Haversine helper (approx) in miles.
  */
-function computeDistanceMiles(
-  userLoc: { lat: number; lng: number } | null,
-  stop?: StopDetail
-): number | null {
-  if (!userLoc || !stop || stop.latitude == null || stop.longitude == null) {
-    return null;
-  }
-
-  const R = 3958.8; // Earth radius in miles
-  const lat1 = userLoc.lat * (Math.PI / 180);
-  const lat2 = stop.latitude * (Math.PI / 180);
-  const dLat = (stop.latitude - userLoc.lat) * (Math.PI / 180);
-  const dLng = (stop.longitude - userLoc.lng) * (Math.PI / 180);
-
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
 function SavedStopCard({
   stop,
   detail,
-  distanceMiles,
   onDelete,
 }: {
   stop: SavedStopRecord;
   detail?: StopDetail;
-  distanceMiles: number | null;
   onDelete: (id: string) => void;
 }) {
   const routes = detail?.routes || [];
 
   // Only show routes that currently have active vehicles
-  const activeRoutes = routes.filter((r) => r.activeVehicles > 0);
-  const topRoutes = activeRoutes.slice(0, 3);
-
-  const hasActive = activeRoutes.length > 0;
+  const activeRoutes = (routes || []).filter((r) => r.activeVehicles > 0);
 
   return (
     <div className="bg-gray-100 p-4 rounded-lg relative group hover:bg-gray-200 transition-colors">
@@ -129,36 +105,35 @@ function SavedStopCard({
         <div>
           <p className="font-semibold">{stop.stopName}</p>
 
-          {distanceMiles != null && (
-            <p className="text-gray-500 text-xs mt-1">
-              {distanceMiles.toFixed(2)} miles from you
-            </p>
-          )}
-
-          {!hasActive ? (
+          {activeRoutes.length === 0 ? (
             <p className="text-gray-600 text-sm mt-1">
               No active buses currently for this stop.
             </p>
           ) : (
             <div className="mt-2 space-y-1 text-sm text-gray-700">
-              {topRoutes.map((r) => {
+              {activeRoutes.map((r) => {
                 const label = r.shortName
                   ? `${r.name} (${r.shortName})`
                   : r.name;
                 return (
-                  <div key={r.id}>
+                  <div key={getRouteKey(r)}>
                     <p>{label}</p>
+                    <p className="text-xs text-gray-500">
+                      {r.closestBusDistanceMiles != null
+                        ? `Closest bus: ${r.closestBusDistanceMiles.toFixed(2)} miles from this stop`
+                        : "Closest bus distance unavailable"}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {r.arrivalEtaMinutes != null
+                        ? `Estimated arrival: about ${r.arrivalEtaMinutes} min`
+                        : "Arrival estimate unavailable"}
+                    </p>
                     <p className="text-xs text-gray-500">
                       Active buses: {r.activeVehicles}
                     </p>
                   </div>
                 );
               })}
-              {activeRoutes.length > topRoutes.length && (
-                <p className="text-xs text-gray-500">
-                  +{activeRoutes.length - topRoutes.length} more active routes
-                </p>
-              )}
             </div>
           )}
         </div>
@@ -189,6 +164,10 @@ function getAlertColor(isImportant: boolean): { bg: string; border: string; text
         text: 'text-yellow-800',
         dot: 'bg-yellow-600',
     };
+}
+
+function getRouteKey(route: { id: string; name?: string | null; shortName?: string | null; status?: string | null }) {
+  return [route.id, route.shortName || "", route.name || "", route.status || ""].join("|");
 }
 
 export default function RoutesPage() {
@@ -228,15 +207,14 @@ export default function RoutesPage() {
   const [loadingSaved, setLoadingSaved] = useState(true);
   const [systemInfo, setSystemInfo] = useState<SystemInfo | null>(null);
 
-  const [userLocation, setUserLocation] = useState<{
-    lat: number;
-    lng: number;
-  } | null>(null);
-
   const { selectedSchool, setSelectedSchool } = useAppState();
   const defaultSchool = SCHOOLS.find(s => s.id === "uga") || SCHOOLS[0];
   const sessionSchool = session?.user?.school ? SCHOOLS.find(s => s.id === session.user.school) : null;
-  const school = isPending ? null : (sessionSchool || selectedSchool || defaultSchool);
+  const resolvedSchool = sessionSchool || selectedSchool || defaultSchool;
+  const schoolPassioId = resolvedSchool.passioId;
+  const schoolName = resolvedSchool.name;
+  const schoolLatitude = resolvedSchool.latitude;
+  const schoolLongitude = resolvedSchool.longitude;
 
   // Load user's school from session
   useEffect(() => {
@@ -252,13 +230,13 @@ export default function RoutesPage() {
     let isMounted = true;
 
     const loadSystemInfo = async () => {
-      if (!school?.passioId) {
+      if (isPending || !schoolPassioId) {
         if (isMounted) setSystemInfo(null);
         return;
       }
 
       try {
-        const res = await fetch(`/api/systems/details?system_id=${school.passioId}`);
+        const res = await fetch(`/api/systems/details?system_id=${schoolPassioId}`);
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}`);
         }
@@ -275,14 +253,19 @@ export default function RoutesPage() {
     return () => {
       isMounted = false;
     };
-  }, [school?.passioId]);
+  }, [isPending, schoolPassioId]);
 
   useEffect(() => {
     let isMounted = true;
     const loadAlerts = async () => {
+      if (isPending || !schoolPassioId) {
+        if (isMounted) setLoadingAlerts(false);
+        return;
+      }
+
       try {
         // Fetching from the explicit FastAPI URL
-        const res = await fetch(`http://127.0.0.1:5050/alerts?system_id=${school.passioId}`);
+        const res = await fetch(`http://127.0.0.1:5050/alerts?system_id=${schoolPassioId}`);
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}`);
         }
@@ -295,9 +278,9 @@ export default function RoutesPage() {
         if (isMounted) setLoadingAlerts(false);
       }
     };
-    if (school?.passioId) loadAlerts();
+    loadAlerts();
     return () => { isMounted = false; };
-  }, [school?.passioId]);
+  }, [isPending, schoolPassioId]);
   // --------------------
   
   // Load saved stops from DB
@@ -334,7 +317,7 @@ export default function RoutesPage() {
       const ids = savedStops.map((s) => s.passioStopId).join(",");
       try {
         const res = await fetch(
-          `/api/stops/details?ids=${encodeURIComponent(ids)}&system_id=${school.passioId}`
+          `/api/stops/details?ids=${encodeURIComponent(ids)}&system_id=${schoolPassioId}`
         );
         const data = await res.json();
         const map: Record<string, StopDetail> = {};
@@ -354,9 +337,9 @@ export default function RoutesPage() {
       }
     };
 
-    if (school?.passioId) fetchDetails();
+    if (!isPending && schoolPassioId) fetchDetails();
     return () => { isMounted = false; };
-  }, [savedStops, school?.passioId]);
+  }, [isPending, savedStops, schoolPassioId]);
 
   // Always load full list of routes
   useEffect(() => {
@@ -364,7 +347,7 @@ export default function RoutesPage() {
     const loadAllRoutes = async () => {
       setLoadingAllRoutes(true);
       try {
-        const res = await fetch(`/api/routes/nearby?system_id=${school.passioId}`);
+        const res = await fetch(`/api/routes/nearby?system_id=${schoolPassioId}`);
         if (!res.ok) throw new Error("Failed to load routes");
         const data: NearbyResponse = await res.json();
         if (isMounted) setAllRoutes(data.routes || []);
@@ -376,13 +359,13 @@ export default function RoutesPage() {
       }
     };
 
-    if (school?.passioId) loadAllRoutes();
+    if (!isPending && schoolPassioId) loadAllRoutes();
     return () => { isMounted = false; };
-  }, [school?.passioId]);
+  }, [isPending, schoolPassioId]);
 
   // Nearby routes via geolocation
   useEffect(() => {
-    if (typeof window === "undefined" || !("geolocation" in navigator)) {
+    if (typeof window === "undefined" || !("geolocation" in navigator) || isPending || !schoolPassioId) {
       return;
     }
 
@@ -394,10 +377,9 @@ export default function RoutesPage() {
         if (!isMounted) return;
         try {
           const { latitude, longitude } = pos.coords;
-          if (isMounted) setUserLocation({ lat: latitude, lng: longitude });
 
           const res = await fetch(
-            `/api/routes/nearby?lat=${latitude}&lng=${longitude}&system_id=${school.passioId}`
+            `/api/routes/nearby?lat=${latitude}&lng=${longitude}&system_id=${schoolPassioId}`
           );
           if (!res.ok) throw new Error("Failed to load nearby routes");
           const data: NearbyResponse = await res.json();
@@ -451,7 +433,7 @@ export default function RoutesPage() {
     );
 
     return () => { isMounted = false; };
-  }, [school?.passioId]);
+  }, [isPending, schoolPassioId]);
 
   const deleteStop = async (id: string) => {
     try {
@@ -475,7 +457,7 @@ export default function RoutesPage() {
 
         return (
           <div
-            key={route.id}
+            key={getRouteKey(route)}
             className="bg-gray-100 p-4 rounded-lg hover:bg-gray-200 transition-colors"
           >
             <p className="font-semibold">{label}</p>
@@ -497,7 +479,7 @@ export default function RoutesPage() {
 
         return (
           <div
-            key={route.id}
+            key={getRouteKey(route)}
             className="bg-gray-100 p-4 rounded-lg hover:bg-gray-200 transition-colors"
           >
             <p className="font-semibold">{label}</p>
@@ -515,7 +497,7 @@ export default function RoutesPage() {
     // 3) Nothing loaded.
     return (
       <p className="text-gray-600 text-sm">
-        Unable to load route information. {school?.name}'s transit provider may be offline or unsupported.
+        Unable to load route information. {schoolName}'s transit provider may be offline or unsupported.
       </p>
     );
   };
@@ -524,8 +506,8 @@ export default function RoutesPage() {
     usedLocation && nearbyRoutes.length === 0 && allRoutes.length > 0;
 
   const passioAgency = systemInfo?.username?.trim() || "";
-  const mapEmbedUrl = school && passioAgency
-    ? `https://${passioAgency}.passiogo.com/?zoom=14.3&lat=${school.latitude}&lng=${school.longitude}&boldRoutes=1`
+  const mapEmbedUrl = passioAgency
+    ? `https://${passioAgency}.passiogo.com/?zoom=14.3&lat=${schoolLatitude}&lng=${schoolLongitude}&boldRoutes=1`
     : "";
   const passioMapHeaderCropPx = 92;
 
@@ -575,10 +557,10 @@ export default function RoutesPage() {
                   background: "linear-gradient(135deg, #E5E7EB 0%, #D1D5DB 100%)",
                 }}
               >
-                {school && mapEmbedUrl ? (
+                {mapEmbedUrl ? (
                   <div
                     className="relative w-full h-full overflow-hidden rounded-lg"
-                    aria-label={`${school.name} Passio Go map`}
+                    aria-label={`${schoolName} Passio Go map`}
                   >
                     <iframe
                       key={mapEmbedUrl}
@@ -593,7 +575,7 @@ export default function RoutesPage() {
                       }}
                       loading="lazy"
                       referrerPolicy="no-referrer-when-downgrade"
-                      title={`${school.name} Passio Go map`}
+                      title={`${schoolName} Passio Go map`}
                     />
                   </div>
                 ) : (
@@ -673,13 +655,11 @@ export default function RoutesPage() {
                 <div className="space-y-3">
                   {savedStops.map((s) => {
                     const detail = stopDetails[s.passioStopId];
-                    const dist = computeDistanceMiles(userLocation, detail);
                     return (
                       <SavedStopCard
                         key={s._id}
                         stop={s}
                         detail={detail}
-                        distanceMiles={dist}
                         onDelete={deleteStop}
                       />
                     );
@@ -705,7 +685,7 @@ export default function RoutesPage() {
 
               {showNoNearbyMessage && (
                 <p className="text-gray-500 text-sm mt-2">
-                  No nearby stops found – showing all {school?.name || "campus"} routes instead.
+                  No nearby stops found – showing all {schoolName || "campus"} routes instead.
                 </p>
               )}
 
