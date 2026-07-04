@@ -1,5 +1,6 @@
 'use client';
 
+// Shared client state for school selection and the local route demo flow.
 import React, {
   createContext,
   useContext,

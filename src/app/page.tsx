@@ -1,5 +1,6 @@
 'use client';
 
+// Public landing page that introduces CampusRoute and opens auth modals.
 import { useRouter } from 'next/navigation';
 import useSearchParamsDX from '../hooks/useSearchParamsDX';
 import { MapPin, Bus, AlertCircle } from 'lucide-react';

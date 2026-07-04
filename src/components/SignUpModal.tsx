@@ -1,5 +1,6 @@
 'use client';
 
+// Sign-up form that captures the user's school before entering the dashboard.
 import { signUp } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useState } from "react";

@@ -1,6 +1,8 @@
 // src/app/not-found.tsx
 "use client";
 
+// Friendly 404 page that sends users back to the CampusRoute home screen.
+
 import Link from "next/link";
 import { MapPin, Bus, ArrowLeft } from "lucide-react";
 

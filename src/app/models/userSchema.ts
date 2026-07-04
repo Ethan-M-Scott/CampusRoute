@@ -1,5 +1,6 @@
 import mongoose, { Document, Schema, Model } from "mongoose";
 
+// MongoDB schema for the app's user profile records.
 export interface IUser extends Document {
   username: string;
   email: string;

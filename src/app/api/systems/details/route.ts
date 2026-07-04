@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
+// Proxies system metadata lookups to the Python backend.
 const PASSIO_BACKEND_URL =
   process.env.PASSIO_BACKEND_URL ?? "http://127.0.0.1:5050";
 

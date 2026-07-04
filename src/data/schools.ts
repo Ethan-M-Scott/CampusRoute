@@ -1,3 +1,4 @@
+// School list that powers Passio system selection and campus map centering.
 export type School = {
   id: string;
   name: string;

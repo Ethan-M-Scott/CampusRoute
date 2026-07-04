@@ -96,7 +96,7 @@ function SavedStopCard({
 }) {
   const routes = detail?.routes || [];
 
-  // Only show routes that currently have active vehicles
+  // Only show routes that currently have active vehicles.
   const activeRoutes = (routes || []).filter((r) => r.activeVehicles > 0);
 
   return (
@@ -118,6 +118,14 @@ function SavedStopCard({
                 return (
                   <div key={getRouteKey(r)}>
                     <p>{label}</p>
+                    {/* Show the next stop first so the user can see where the bus is headed. */}
+                    <p className="text-xs text-gray-500">
+                      {r.nextStopName
+                        ? r.nextStopEtaMinutes != null
+                          ? `Next stop: ${r.nextStopName} in ${r.nextStopEtaMinutes} min`
+                          : `Next stop: ${r.nextStopName}`
+                        : "Next stop unavailable"}
+                    </p>
                     <p className="text-xs text-gray-500">
                       {r.closestBusDistanceMiles != null
                         ? `Closest bus: ${r.closestBusDistanceMiles.toFixed(2)} miles from this stop`
@@ -167,6 +175,7 @@ function getAlertColor(isImportant: boolean): { bg: string; border: string; text
 }
 
 function getRouteKey(route: { id: string; name?: string | null; shortName?: string | null; status?: string | null }) {
+  // Passio can reuse the same route ID for different route variants, so mix in other fields.
   return [route.id, route.shortName || "", route.name || "", route.status || ""].join("|");
 }
 

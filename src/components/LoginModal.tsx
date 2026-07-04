@@ -1,5 +1,6 @@
 'use client';
 
+// Login form that authenticates the user and sends them into the dashboard.
 import { signIn } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useState } from "react";

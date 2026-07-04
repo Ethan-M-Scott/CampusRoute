@@ -1,6 +1,7 @@
 // src/components/BusRoutesNearYou.tsx
 "use client";
 
+// Dashboard card that polls nearby Passio routes and live stop proximity.
 import { useEffect, useState } from "react";
 import { Bus, MapPin, AlertCircle } from "lucide-react";
 

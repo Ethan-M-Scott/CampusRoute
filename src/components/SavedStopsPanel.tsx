@@ -1,6 +1,7 @@
 // src/components/SavedStopsPanel.tsx
 "use client";
 
+// Polling panel that keeps saved stops fresh in the authenticated dashboard.
 import { useEffect, useState } from "react";
 import { Bus, Plus, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";

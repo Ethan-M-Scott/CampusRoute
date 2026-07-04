@@ -1,4 +1,5 @@
 "use client"
+// Small helper for reading and updating URL search params from React code.
 import { ReadonlyURLSearchParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 
 // note: as a hook, this may ONLY BE CALLED DURING RENDERING!!! make sure to store setSearchParams at top-level. if you

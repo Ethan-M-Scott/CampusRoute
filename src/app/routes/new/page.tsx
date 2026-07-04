@@ -1,5 +1,6 @@
 "use client";
 
+// Saved-stop selection screen for the authenticated campus dashboard.
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/auth-client";

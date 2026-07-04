@@ -1,5 +1,6 @@
 import mongoose, { Document, Schema, Model } from "mongoose";
 
+// MongoDB schema for one saved campus stop.
 export interface ISavedStop extends Document {
   userId: string;
   passioStopId: string;

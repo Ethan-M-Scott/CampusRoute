@@ -6,6 +6,7 @@ import ModalDialog from '../components/ModalDialog';
 
 const inter = Inter({ subsets: ['latin'] });
 
+// Root layout that wraps every page with shared app state and auth modals.
 export const metadata: Metadata = {
   title: 'CampusRoute - UGA Traffic Monitoring',
   description:

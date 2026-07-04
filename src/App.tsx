@@ -1,3 +1,4 @@
+// Legacy local UI playground used for testing route and form views.
 import { useState } from 'react';
 import { SplashScreen } from './components/SplashScreen_v2';
 import { NonAuthenticatedView } from './components/NonAuthenticatedView';

@@ -7,6 +7,8 @@ import requests
 import passiogo
 from datetime import datetime 
 
+# FastAPI wrapper around Passio Go that serves transit data to the web app.
+
 app = FastAPI()
 
 app.add_middleware(

@@ -1,6 +1,7 @@
 // src/app/api/routes/nearby/route.ts
 import { NextRequest, NextResponse } from "next/server";
 
+// Proxies nearby-route lookups to the Python backend.
 const PASSIO_BACKEND_URL =
   process.env.PASSIO_BACKEND_URL ?? "http://127.0.0.1:5050";
 

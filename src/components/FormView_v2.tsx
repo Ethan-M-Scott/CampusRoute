@@ -1,5 +1,6 @@
 "use client";
 
+// Saved-stop form used by the local demo and school stop selection flow.
 import React, { useEffect, useState } from "react";
 import { MapPin, User, X, Save, LogOut } from "lucide-react";
 

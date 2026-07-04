@@ -1,3 +1,4 @@
+// Shared Passio API response shapes used by route and stop views.
 // shared shapes (copy into components where needed)
 
 export type NearbyRoute = {

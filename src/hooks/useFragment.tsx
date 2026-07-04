@@ -1,4 +1,5 @@
 "use client";
+// Hook for reading and updating the URL hash fragment in the app router.
 import { useEffect, useState } from "react";
 
 // based on https://blog.zenblog.com/how-to-get-the-anchor-or-hash-from-the-url-in-nextjs-15-app-router

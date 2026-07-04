@@ -1,4 +1,5 @@
 "use client"
+// Shared modal host that opens login and sign-up dialogs from the URL.
 import LoginModal from "./LoginModal";
 import SignUpModal from "./SignUpModal";
 import { JSX, useCallback, useEffect, useRef } from "react";
