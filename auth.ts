@@ -24,8 +24,10 @@ transporter.verify(function (error, success) {
 });
 
 export const auth = betterAuth({
-  adapter: prismaAdapter(db),
-  // FIX: Enable the built-in email and password feature natively
+  // FIX: Add the provider options object as the second argument
+  adapter: prismaAdapter(db, {
+    provider: "mongodb", 
+  }),
   emailAndPassword: {
     enabled: true,
   },
