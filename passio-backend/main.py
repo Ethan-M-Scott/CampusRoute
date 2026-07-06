@@ -27,6 +27,11 @@ _DEFAULT_BUS_SPEED_MPH = 12.0
 def read_root():
     return {"status": "CampusRoute Backend is running!"}
 
+
+@app.head("/")
+def head_root():
+    return Response(status_code=200)
+
 @app.get("/favicon.ico", include_in_schema=False)
 def favicon():
     return Response(status_code=204)
