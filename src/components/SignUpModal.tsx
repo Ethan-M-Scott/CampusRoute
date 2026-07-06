@@ -51,7 +51,12 @@ const SignUpModal = ({dialog}: {dialog: HTMLDialogElement | null}) => {
       } as any); 
 
       if (authError) {
-        setError(authError.message || "account could not be created with the provided credentials");
+        console.error("Better Auth sign-up error:", authError);
+        setError(
+          authError.message ||
+          authError.code ||
+          `account could not be created with the provided credentials${authError.status ? ` (${authError.status})` : ""}`
+        );
         return;
       }
 

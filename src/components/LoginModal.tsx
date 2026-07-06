@@ -30,7 +30,12 @@ const LoginModal = ({dialog}: {dialog: HTMLDialogElement | null}) => {
       });
 
       if (authError) {
-        setError(authError.message || "could not sign in with the provided credentials");
+        console.error("Better Auth sign-in error:", authError);
+        setError(
+          authError.message ||
+          authError.code ||
+          `could not sign in with the provided credentials${authError.status ? ` (${authError.status})` : ""}`
+        );
         return;
       }
 
