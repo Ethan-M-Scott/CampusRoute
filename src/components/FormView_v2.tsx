@@ -31,6 +31,15 @@ export function FormView({
       setLoadingStops(true);
       try {
         const res = await fetch("/api/stops/all");
+        if (!res.ok) {
+          throw new Error(`Failed to load stops (${res.status})`);
+        }
+
+        const contentType = res.headers.get("content-type") || "";
+        if (!contentType.includes("application/json")) {
+          throw new Error("Stops response was not JSON");
+        }
+
         const data = await res.json();
         const options: StopOption[] = (data.stops || []).map((s: any) => ({
           id: s.id,
@@ -68,15 +77,18 @@ export function FormView({
 
     setSubmitting(true);
     try {
-      const stopIds = Array.from(selected);
-      const stopNames = stopIds.map(
-        (id) => stops.find((s) => s.id === id)?.name || "Saved stop"
-      );
+      const selectedStops = Array.from(selected).map((id) => {
+        const stop = stops.find((s) => s.id === id);
+        return {
+          passioStopId: id,
+          stopName: stop?.name || "Saved stop",
+        };
+      });
 
       const res = await fetch("/api/stops/mine", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stopIds, stopNames }),
+        body: JSON.stringify({ stops: selectedStops }),
       });
 
       if (!res.ok) {

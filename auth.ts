@@ -24,6 +24,29 @@ transporter.verify(function (error, success) {
 });
 
 export const auth = betterAuth({
+  trustedOrigins: async (request) => {
+    const origins = new Set<string>([
+      process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
+      "https://*.vercel.app",
+      "http://localhost:3000",
+      "http://127.0.0.1:3000",
+    ]);
+
+    if (request) {
+      try {
+        origins.add(new URL(request.url).origin);
+      } catch {
+        // Ignore malformed request URLs and fall back to the configured origins.
+      }
+    }
+
+    return Array.from(origins);
+  },
+  advanced: {
+    database: {
+      generateId: false,
+    },
+  },
   database: prismaAdapter(db, {
     provider: "mongodb", 
   }),

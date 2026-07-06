@@ -73,6 +73,15 @@ export default function AddSavedStopsPage() {
       try {
         const res = await fetch("/api/stops/mine");
         if (res.status === 401) return;
+        if (!res.ok) {
+          throw new Error(`Failed to load saved stops: ${res.status}`);
+        }
+
+        const contentType = res.headers.get("content-type") || "";
+        if (!contentType.includes("application/json")) {
+          throw new Error("Saved stops response was not JSON");
+        }
+
         const data = await res.json();
         const ids: string[] = (data.stops || []).map(
           (s: { passioStopId: string }) => s.passioStopId
@@ -114,7 +123,23 @@ export default function AddSavedStopsPage() {
       });
 
       if (!res.ok) {
-        throw new Error(`Failed to save: ${res.status}`);
+        let message = `Failed to save: ${res.status}`;
+        try {
+          const contentType = res.headers.get("content-type") || "";
+          if (contentType.includes("application/json")) {
+            const errorBody = await res.json();
+            if (errorBody?.error) {
+              message = errorBody.error;
+            }
+          } else {
+            const text = await res.text();
+            if (text) message = text;
+          }
+        } catch {
+          // Keep the fallback status message.
+        }
+
+        throw new Error(message);
       }
 
       router.push("/routes");

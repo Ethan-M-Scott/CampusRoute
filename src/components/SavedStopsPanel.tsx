@@ -52,6 +52,11 @@ export default function SavedStopsPanel() {
           throw new Error(`Failed to load saved stops (${res.status})`);
         }
 
+        const contentType = res.headers.get("content-type") || "";
+        if (!contentType.includes("application/json")) {
+          throw new Error("Saved stops response was not JSON");
+        }
+
         const data = (await res.json()) as { stops: StopDetails[] };
         if (cancelled) return;
         setStops(data.stops || []);
