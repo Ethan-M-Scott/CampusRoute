@@ -8,9 +8,9 @@ const inter = Inter({ subsets: ['latin'] });
 
 // Root layout that wraps every page with shared app state and auth modals.
 export const metadata: Metadata = {
-  title: 'CampusRoute - UGA Traffic Monitoring',
+  title: 'My Campus Route - UGA Traffic Monitoring',
   description:
-    'Real-time traffic analysis around UGA campus. Plan routes, avoid congestion, track buses, get alerts.',
+    'Real-time traffic analysis around UGA campus. Plan routes, avoid congestion, track buses, get alerts with My Campus Route.',
 };
 
 export default function RootLayout({

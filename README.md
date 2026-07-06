@@ -1,6 +1,6 @@
-# CampusRoute
+# My Campus Route
 
-CampusRoute is a campus transit dashboard for tracking buses, nearby routes, service alerts, and saved stops for a selected college. The site is built with Next.js on the frontend and FastAPI on the backend, and it uses Passio Go data so the transit view stays tied to the user's school.
+My Campus Route is a campus transit dashboard for tracking buses, nearby routes, service alerts, and saved stops for a selected college. The site is built with Next.js on the frontend and FastAPI on the backend, and it uses Passio Go data so the transit view stays tied to the user's school.
 
 ## What the website does
 
@@ -166,4 +166,4 @@ uvicorn main:app --reload --port 5050
 
 ## Purpose
 
-CampusRoute exists to give students a single place to check transit movement, bus arrival estimates, and route alerts for their own college without jumping between separate transit pages.
+My Campus Route exists to give students a single place to check transit movement, bus arrival estimates, and route alerts for their own college without jumping between separate transit pages.

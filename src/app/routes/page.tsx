@@ -273,7 +273,6 @@ export default function RoutesPage() {
       }
 
       try {
-        // Fetching from the explicit FastAPI URL
         const res = await fetch(`http://127.0.0.1:5050/alerts?system_id=${schoolPassioId}`);
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}`);
@@ -529,7 +528,7 @@ export default function RoutesPage() {
             className="text-white"
             style={{ fontSize: "24px", fontWeight: 700 }}
           >
-            CampusRoute
+            My Campus Route
           </span>
         </div>
 

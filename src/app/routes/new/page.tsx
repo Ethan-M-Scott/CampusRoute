@@ -129,7 +129,7 @@ export default function AddSavedStopsPage() {
       <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-lg p-8">
         <h1 className="text-2xl font-bold mb-2">Add Saved Stops</h1>
         <p className="text-gray-600 mb-6">
-          Choose the bus stops you care about most. CampusRoute will show live
+          Choose the bus stops you care about most. My Campus Route will show live
           status for the routes serving these stops.
         </p>
 

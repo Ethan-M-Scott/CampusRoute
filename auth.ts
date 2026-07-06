@@ -37,16 +37,16 @@ export const auth = betterAuth({
           if (!user.email) return;
           try {
             const info = await transporter.sendMail({
-              from: `"CampusRoute" <${process.env.EMAIL_USER}>`,
+              from: `"My Campus Route" <${process.env.EMAIL_USER}>`,
               to: user.email,
-              subject: "Welcome to CampusRoute!",
-              text: `Welcome to CampusRoute, ${user.name || 'User'}!\n\nWe're letting you know that this email address was just used to create an account. If you made this request, you're all set! Enjoy tracking your buses.\n\nIf you did not sign up, you can safely ignore this email.`,
+              subject: "Welcome to My Campus Route!",
+              text: `Welcome to My Campus Route, ${user.name || 'User'}!\n\nWe're letting you know that this email address was just used to create an account. If you made this request, you're all set! Enjoy tracking your buses.\n\nIf you did not sign up, you can safely ignore this email.`,
               html: `
                 <div style="font-family: sans-serif; padding: 20px; color: #333;">
                   <h2 style="color: #1d4ed8;">Welcome, ${user.name || 'User'}!</h2>
-                  <p>We're letting you know that this email address was just used to create an account on <strong>CampusRoute</strong>.</p>
+                  <p>We're letting you know that this email address was just used to create an account on <strong>My Campus Route</strong>.</p>
                   <p>If you made this request, you're all set! Enjoy tracking your buses.</p>
-                  <p style="margin-top: 30px; font-size: 12px; color: #666;">If you did not sign up for CampusRoute, you can safely ignore this email.</p>
+                  <p style="margin-top: 30px; font-size: 12px; color: #666;">If you did not sign up for My Campus Route, you can safely ignore this email.</p>
                 </div>
               `,
             });

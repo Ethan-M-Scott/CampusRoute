@@ -1,6 +1,6 @@
 'use client';
 
-// Public landing page that introduces CampusRoute and opens auth modals.
+// Public landing page that introduces My Campus Route and opens auth modals.
 import { useRouter } from 'next/navigation';
 import useSearchParamsDX from '../hooks/useSearchParamsDX';
 import { MapPin, Bus, AlertCircle } from 'lucide-react';
@@ -49,7 +49,7 @@ export default function SplashPage() {
 
         {/* Title */}
         <h1 className="text-white mb-4 text-center" style={{ fontSize: '60px', fontWeight: 700 }}>
-          CampusRoute
+          My Campus Route
         </h1>
 
         {/* Subtitle */}

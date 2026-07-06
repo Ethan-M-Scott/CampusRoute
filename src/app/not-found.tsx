@@ -1,7 +1,7 @@
 // src/app/not-found.tsx
 "use client";
 
-// Friendly 404 page that sends users back to the CampusRoute home screen.
+// Friendly 404 page that sends users back to the My Campus Route home screen.
 
 import Link from "next/link";
 import { MapPin, Bus, ArrowLeft } from "lucide-react";
@@ -13,7 +13,7 @@ export default function NotFoundPage() {
       <header className="bg-blue-600 h-20 shadow-lg flex items-center px-8">
         <div className="flex items-center gap-3">
           <MapPin className="w-8 h-8 text-white" />
-          <span className="text-white text-2xl font-bold">CampusRoute</span>
+          <span className="text-white text-2xl font-bold">My Campus Route</span>
         </div>
       </header>
 
@@ -33,7 +33,7 @@ export default function NotFoundPage() {
 
           <p className="text-gray-500 text-sm mb-8">
             Check the URL, or use the button below to go back to the main
-            CampusRoute home screen.
+            My Campus Route home screen.
           </p>
 
           <div className="flex justify-center">

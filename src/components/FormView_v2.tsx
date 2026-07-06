@@ -104,7 +104,7 @@ export function FormView({
             className="text-white"
             style={{ fontSize: "24px", fontWeight: 700 }}
           >
-            CampusRoute
+            My Campus Route
           </span>
         </div>
 
@@ -145,7 +145,7 @@ export function FormView({
             Add Saved Stops
           </h1>
           <p className="text-gray-600 mb-8" style={{ fontSize: "16px" }}>
-            Choose the bus stops you care about most. CampusRoute will show live
+            Choose the bus stops you care about most. My Campus Route will show live
             status for the routes serving these stops.
           </p>
 
