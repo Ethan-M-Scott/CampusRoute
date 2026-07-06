@@ -64,3 +64,13 @@ model Verification {
 
   @@map("verification")
 }
+
+model SavedStop {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId       String   @db.ObjectId
+  passioStopId String
+  stopName     String
+
+  @@index([userId])
+  @@map("saved_stop")
+}

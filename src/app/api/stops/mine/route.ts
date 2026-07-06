@@ -1,25 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
-import "@/config/mongodb";
 import { auth } from "../../../../../auth";
-import SavedStop from "../../../models/SavedStop";
+import { db } from "../../../../../db";
 
-// GET /api/stops/mine  -> list saved stops for current user
+// GET /api/stops/mine -> list saved stops for current user
 export async function GET(req: NextRequest) {
   try {
     const session = await auth.api.getSession({ headers: req.headers });
 
-    // If no session, just return empty list (frontend already handles this)
     if (!session) {
       return NextResponse.json({ stops: [] }, { status: 200 });
     }
 
-    const userId = session.user.id;
-
-    const docs = await SavedStop.find({ userId }).lean();
+    const docs = await db.savedStop.findMany({
+      where: { userId: session.user.id },
+      orderBy: { passioStopId: "asc" },
+    });
 
     return NextResponse.json({
-      stops: docs.map((d: any) => ({
-        _id: d._id.toString(),
+      stops: docs.map((d) => ({
+        _id: d.id,
         passioStopId: d.passioStopId,
         stopName: d.stopName,
       })),
@@ -33,7 +32,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST /api/stops/mine  -> replace saved stops for current user
+// POST /api/stops/mine -> replace saved stops for current user
 export async function POST(req: NextRequest) {
   try {
     const session = await auth.api.getSession({ headers: req.headers });
@@ -42,7 +41,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userId = session.user.id;
     let body: any;
 
     try {
@@ -63,7 +61,6 @@ export async function POST(req: NextRequest) {
 
     const stops = body.stops as { passioStopId: string; stopName: string }[];
 
-    // Filter out anything invalid
     const cleaned = stops.filter(
       (s) =>
         s &&
@@ -73,17 +70,18 @@ export async function POST(req: NextRequest) {
         s.stopName.length > 0
     );
 
-    // If list is empty, treat as "clear all stops"
-    await SavedStop.deleteMany({ userId });
+    await db.savedStop.deleteMany({
+      where: { userId: session.user.id },
+    });
 
     if (cleaned.length > 0) {
-      await SavedStop.insertMany(
-        cleaned.map((s) => ({
-          userId,
+      await db.savedStop.createMany({
+        data: cleaned.map((s) => ({
+          userId: session.user.id,
           passioStopId: s.passioStopId,
           stopName: s.stopName,
-        }))
-      );
+        })),
+      });
     }
 
     return NextResponse.json({ ok: true });
@@ -96,7 +94,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// DELETE /api/stops/mine?id=<mongoId>  -> delete one saved stop
+// DELETE /api/stops/mine?id=<mongoId> -> delete one saved stop
 export async function DELETE(req: NextRequest) {
   try {
     const session = await auth.api.getSession({ headers: req.headers });
@@ -105,7 +103,6 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userId = session.user.id;
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
 
@@ -116,7 +113,9 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    await SavedStop.deleteOne({ _id: id, userId });
+    await db.savedStop.deleteMany({
+      where: { id, userId: session.user.id },
+    });
 
     return NextResponse.json({ ok: true });
   } catch (err) {
