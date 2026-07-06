@@ -1,5 +1,4 @@
 import { betterAuth } from "better-auth";
-import { emailAndPassword } from "better-auth/providers";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { db } from "./db";
 import nodemailer from "nodemailer";
@@ -26,9 +25,10 @@ transporter.verify(function (error, success) {
 
 export const auth = betterAuth({
   adapter: prismaAdapter(db),
-  providers: [
-    emailAndPassword(),
-  ],
+  // FIX: Enable the built-in email and password feature natively
+  emailAndPassword: {
+    enabled: true,
+  },
   databaseHooks: {
     user: {
       create: {
