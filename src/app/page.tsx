@@ -1,13 +1,13 @@
 'use client';
 
 // Public landing page that introduces My Campus Route and opens auth modals.
+import { Suspense, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import useSearchParamsDX from '../hooks/useSearchParamsDX';
 import { MapPin, Bus, AlertCircle } from 'lucide-react';
 import Image from 'next/image';
-import { useCallback } from 'react';
 
-export default function SplashPage() {
+function SplashContent() {
   const router = useRouter();
   const [,setSearchParams] = useSearchParamsDX();
   const setModal = useCallback((modal: string) => setSearchParams({modal}), [setSearchParams]);
@@ -101,5 +101,13 @@ export default function SplashPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SplashPage() {
+  return (
+    <Suspense fallback={null}>
+      <SplashContent />
+    </Suspense>
   );
 }

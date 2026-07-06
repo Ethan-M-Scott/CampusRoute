@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import { Inter } from 'next/font/google';
 import '../styles/globals.css';
 import { AppStateProvider } from '../components/AppStateContext';
@@ -23,7 +24,9 @@ export default function RootLayout({
       <body className={inter.className}>
         <AppStateProvider>
           {children}
-          <ModalDialog />
+          <Suspense fallback={null}>
+            <ModalDialog />
+          </Suspense>
         </AppStateProvider>
       </body>
     </html>

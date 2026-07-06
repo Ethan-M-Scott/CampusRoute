@@ -273,7 +273,7 @@ export default function RoutesPage() {
       }
 
       try {
-        const res = await fetch(`http://127.0.0.1:5050/alerts?system_id=${schoolPassioId}`);
+        const res = await fetch(`/api/alerts?system_id=${schoolPassioId}`);
         if (!res.ok) {
           throw new Error(`HTTP ${res.status}`);
         }

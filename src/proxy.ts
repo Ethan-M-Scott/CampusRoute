@@ -1,7 +1,7 @@
 // Middleware-style auth proxy for guarding route pages during navigation.
 import { NextRequest, NextResponse } from "next/server";
 import { headers } from "next/headers";
-import { auth } from "@/lib/auth";
+import { auth } from "@/auth";
 
 export async function proxy(request: NextRequest) {
     const session = await auth.api.getSession({
