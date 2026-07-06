@@ -3,7 +3,7 @@
 // Saved-stop selection screen for the authenticated campus dashboard.
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useSession } from "@/lib/auth-client";
+import { useSession } from "../../../../auth-client";
 import { useAppState } from '@/src/components/AppStateContext';
 import { SCHOOLS } from '@/src/data/schools';
 
@@ -14,6 +14,10 @@ type ApiStop = {
 
 export default function AddSavedStopsPage() {
   const router = useRouter();
+  
+  // 1. Move hooks to the very top
+  const { data: session, isPending } = useSession();
+  const { selectedSchool, setSelectedSchool } = useAppState();
 
   const [allStops, setAllStops] = useState<ApiStop[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -21,26 +25,28 @@ export default function AddSavedStopsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { data: session, isPending } = useSession();
-  const { selectedSchool, setSelectedSchool } = useAppState();
+  // 2. Define derived state safely after hooks
   const defaultSchool = SCHOOLS.find(s => s.id === "uga") || SCHOOLS[0];
-  const sessionSchool = session?.user?.school ? SCHOOLS.find(s => s.id === session.user.school) : null;
+  const user = session?.user as any; 
+  const sessionSchool = user?.school ? SCHOOLS.find(s => s.id === user.school) : null;
   const school = isPending ? null : (sessionSchool || selectedSchool || defaultSchool);
 
   // Load user's school from session
   useEffect(() => {
-    if (session?.user && session.user.school) {
-      const sessionSchool = SCHOOLS.find(s => s.id === session.user.school);
-      if (sessionSchool) {
-        setSelectedSchool(sessionSchool);
+    if (user?.school) {
+      const foundSchool = SCHOOLS.find(s => s.id === user.school);
+      if (foundSchool) {
+        setSelectedSchool(foundSchool);
       }
     }
-  }, [session, setSelectedSchool]);
+  }, [user?.school, setSelectedSchool]);
 
   // Load all stops from backend
   useEffect(() => {
     let isMounted = true;
     const loadAllStops = async () => {
+      if (!school?.passioId) return; // Guard clause
+      
       setLoadingStops(true);
       try {
         const res = await fetch(`/api/stops/all?system_id=${school.passioId}`);
@@ -56,7 +62,7 @@ export default function AddSavedStopsPage() {
       }
     };
 
-    if (school?.passioId) loadAllStops();
+    loadAllStops();
     return () => { isMounted = false; };
   }, [school?.passioId, school?.name]);
 
