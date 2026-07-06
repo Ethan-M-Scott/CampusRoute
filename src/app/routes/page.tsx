@@ -1,7 +1,7 @@
 "use client";
-import { useSession } from "@/lib/auth-client"
+
+import { useSession, signOut } from "../../../auth-client";
 import { useRouter } from 'next/navigation';
-import { signOut } from '@/lib/auth-client';
 import { MapPin, Bus, User, LogOut, Plus, Trash2, AlertCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useAppState } from '@/src/components/AppStateContext';
@@ -191,7 +191,7 @@ export default function RoutesPage() {
   const { 
         data: session, // auth session info
         isPending, //loading state
-    } = useSession();
+    } = useSession() as any;
 
   // Redirect to unauthenticated home page if not logged in
   useEffect(() => {

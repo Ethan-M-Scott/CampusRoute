@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { auth } from "../../../../../auth";
 import SavedStop from "../../../models/SavedStop";
 
 // GET /api/stops/mine  -> list saved stops for current user

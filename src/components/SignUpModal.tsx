@@ -1,7 +1,7 @@
 'use client';
 
 // Sign-up form that captures the user's school before entering the dashboard.
-import { signUp } from "@/lib/auth-client";
+import { signUp } from "../../auth-client";
 import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useState } from "react";
 import { SCHOOLS } from "@/src/data/schools";
@@ -48,7 +48,7 @@ const SignUpModal = ({dialog}: {dialog: HTMLDialogElement | null}) => {
         name,
         password,
         school: schoolId,
-      });
+      } as any); 
 
       if (authError) {
         setError(authError.message || "account could not be created with the provided credentials");
