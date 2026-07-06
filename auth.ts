@@ -24,8 +24,7 @@ transporter.verify(function (error, success) {
 });
 
 export const auth = betterAuth({
-  // FIX: Add the provider options object as the second argument
-  adapter: prismaAdapter(db, {
+  database: prismaAdapter(db, {
     provider: "mongodb", 
   }),
   emailAndPassword: {
