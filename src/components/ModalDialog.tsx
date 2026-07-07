@@ -16,16 +16,20 @@ const ModalDialog = () => {
     } as Record<string, JSX.Element>;
     const modal = (modals[searchParams.get("modal") ?? ""]) ?? null;
 
-    if (modal) dialogRef.current?.showModal();
-
     // while this only runs on mount, unfortunately changing search params counts as navigation
     useEffect(() => {
         const dialog = dialogRef.current;
 
+        if (dialog && modal && !dialog.open) {
+            dialog.showModal();
+        } else if (dialog && !modal && dialog.open) {
+            dialog.close();
+        }
+
         dialog?.addEventListener("close", onDialogClose);
 
         return () => dialog?.removeEventListener("close", onDialogClose);
-    });
+    }, [modal, onDialogClose]);
 
     return (
         <dialog ref={dialogRef} closedby="any" className="m-auto w-[calc(100vw-1rem)] max-w-md bg-white rounded-xl shadow-xl overflow-hidden">
