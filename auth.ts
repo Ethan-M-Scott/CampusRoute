@@ -24,6 +24,12 @@ transporter.verify(function (error, success) {
 });
 
 export const auth = betterAuth({
+  advanced: {
+    useSecureCookies: process.env.NODE_ENV === "production",
+    database: {
+      generateId: false,
+    },
+  },
   trustedOrigins: async (request) => {
     const origins = new Set<string>([
       process.env.BETTER_AUTH_URL ?? "http://localhost:3000",
@@ -42,16 +48,25 @@ export const auth = betterAuth({
 
     return Array.from(origins);
   },
-  advanced: {
-    database: {
-      generateId: false,
-    },
-  },
   user: {
     additionalFields: {
       school: {
         type: "string",
         required: false,
+      },
+    },
+  },
+  cookies: {
+    sessionToken: {
+      attributes: {
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
+      },
+    },
+    sessionData: {
+      attributes: {
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
       },
     },
   },
