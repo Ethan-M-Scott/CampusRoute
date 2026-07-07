@@ -67,7 +67,8 @@ const SignUpModal = ({dialog}: {dialog: HTMLDialogElement | null}) => {
       }
 
       dialog?.close();
-      window.location.href = '/routes';
+      router.replace('/routes');
+      router.refresh();
     } catch (e: unknown) {
       console.error("Sign up error:", e);
       setError(e instanceof Error ? e.message : "account could not be created with the provided credentials");

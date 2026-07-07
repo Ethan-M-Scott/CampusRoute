@@ -40,7 +40,8 @@ const LoginModal = ({dialog}: {dialog: HTMLDialogElement | null}) => {
       }
 
       dialog?.close();
-      window.location.href = '/routes';
+      router.replace('/routes');
+      router.refresh();
     } catch (e: any) {
       console.error("Login error:", e);
       setError(e.message || "could not sign in with the provided credentials");
