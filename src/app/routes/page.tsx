@@ -193,13 +193,6 @@ export default function RoutesPage() {
         isPending, //loading state
     } = useSession() as any;
 
-  // Redirect to unauthenticated home page if not logged in
-  useEffect(() => {
-    if (!isPending && !session) {
-      router.push('/');
-    }
-  }, [session, isPending, router]);
-
   const [savedStops, setSavedStops] = useState<SavedStopRecord[]>([]);
   const [stopDetails, setStopDetails] = useState<Record<string, StopDetail>>(
     {}
