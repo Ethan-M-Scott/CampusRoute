@@ -28,7 +28,7 @@ const ModalDialog = () => {
     });
 
     return (
-        <dialog ref={dialogRef} closedby="any" className="m-auto bg-white rounded-xl shadow-xl">
+        <dialog ref={dialogRef} closedby="any" className="m-auto w-[calc(100vw-1rem)] max-w-md bg-white rounded-xl shadow-xl overflow-hidden">
             {modal}
         </dialog>
     );

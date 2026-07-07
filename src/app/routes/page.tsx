@@ -521,27 +521,27 @@ export default function RoutesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-blue-600 h-20 shadow-lg flex items-center justify-between px-8">
-        <div className="flex items-center gap-3">
-          <MapPin className="w-8 h-8 text-white" />
+      <header className="bg-blue-600 shadow-lg flex flex-col gap-3 px-4 py-4 sm:px-8 sm:py-0 sm:h-20 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3 self-start sm:self-auto">
+          <MapPin className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
           <span
-            className="text-white"
-            style={{ fontSize: "24px", fontWeight: 700 }}
+            className="text-white text-lg sm:text-2xl"
+            style={{ fontWeight: 700 }}
           >
             My Campus Route
           </span>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 w-full sm:w-auto">
           {isPending ? null : session && (
-            <div className="bg-blue-800 rounded-lg px-4 py-2 flex items-center gap-3">
-              <User className="w-5 h-5 text-white" />{/* I'm not sure if we still want to keep this icon. */}
+            <div className="bg-blue-800 rounded-lg px-4 py-2 flex items-center gap-3 w-full sm:w-auto">
+              <User className="w-5 h-5 text-white" />
               <span className="text-white font-semibold">Welcome, {session.user.name}</span>
             </div>)
           }
           <button
             onClick={onLogout}
-            className="bg-white text-blue-600 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors flex items-center gap-2"
+            className="bg-white text-blue-600 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors flex items-center justify-center gap-2 w-full sm:w-auto"
             style={{ fontWeight: 600 }}
           >
             <LogOut className="w-4 h-4" />
@@ -550,14 +550,13 @@ export default function RoutesPage() {
         </div>
       </header>
 
-      <main className="p-8">
-        <div className="grid grid-cols-3 gap-6 max-w-7xl mx-auto">
+      <main className="p-4 sm:p-8">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 max-w-7xl mx-auto">
           {/* Left: map + legend + alerts */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="xl:col-span-2 space-y-6">
           {/* Map card */}
             <div
-              className="bg-white rounded-xl shadow-lg p-6"
-              style={{ height: "600px" }}
+              className="bg-white rounded-xl shadow-lg p-4 sm:p-6 h-[360px] sm:h-[520px] lg:h-[600px]"
             >
               <div
                 className="w-full h-full rounded-lg flex flex-col items-center justify-center"
@@ -572,10 +571,10 @@ export default function RoutesPage() {
                   >
                     <iframe
                       key={mapEmbedUrl}
-                      className="absolute left-0 w-full rounded-lg"
+                      className="absolute left-0 w-full h-full rounded-lg"
                       src={mapEmbedUrl}
-                      width="800"
-                      height="800"
+                      width="100%"
+                      height="100%"
                       style={{
                         border: 0,
                         top: `-${passioMapHeaderCropPx}px`,
@@ -594,7 +593,7 @@ export default function RoutesPage() {
 
 
             {/* Real-time traffic alerts (DYNAMIC) */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
               <div className="flex items-center gap-2 mb-4">
                 <AlertCircle className="w-5 h-5 text-blue-600" />
                 <h2 className="text-lg font-bold">Traffic Alerts</h2>
@@ -638,7 +637,7 @@ export default function RoutesPage() {
           {/* Right: saved stops + routes near you */}
           <div className="space-y-6">
             {/* Saved Stops */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <Bus className="w-5 h-5 text-blue-600" />
@@ -677,7 +676,7 @@ export default function RoutesPage() {
             </div>
 
             {/* Bus Routes Near You */}
-            <div className="bg-white rounded-xl shadow-lg p-6">
+            <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6">
               <div className="flex items-center gap-2 mb-4">
                 <Bus className="w-5 h-5 text-blue-600" />
                 <h2 className="text-lg font-bold">Bus Routes Near You</h2>
