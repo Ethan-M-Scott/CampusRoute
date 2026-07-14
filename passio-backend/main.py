@@ -217,14 +217,14 @@ def _speed_mps(speed_mph: float | None) -> float:
     return speed * 0.44704
 
 
-def _estimate_next_stop_for_vehicle(vehicle, route_stops: list[dict]) -> tuple[str | None, int | None, float | None]:
+def _get_best_route_segment(vehicle, route_stops: list[dict]) -> dict | None:
     if len(route_stops) < 2:
-        return None, None, None
+        return None
 
     vehicle_lat = _vehicle_latitude(vehicle)
     vehicle_lng = _vehicle_longitude(vehicle)
     if vehicle_lat is None or vehicle_lng is None:
-        return None, None, None
+        return None
 
     course_value = getattr(vehicle, "calculatedCourse", None)
     try:
@@ -275,63 +275,90 @@ def _estimate_next_stop_for_vehicle(vehicle, route_stops: list[dict]) -> tuple[s
             score += _angle_difference(course, segment_bearing) * 12.0
 
         if best_score is None or score < best_score:
+            segment_length_m = _haversine(start["latitude"], start["longitude"], end["latitude"], end["longitude"])
             best_score = score
             best_segment = {
                 "index": index,
-                "distance_to_next_stop_m": math.hypot(bx - px, by - py),
+                "distance_to_next_stop_m": segment_length_m * (1.0 - t),
+                "speed_mps": speed_mps,
             }
+
+    return best_segment
+
+
+def _estimate_next_stop_for_vehicle(vehicle, route_stops: list[dict]) -> tuple[str | None, int | None, float | None]:
+    best_segment = _get_best_route_segment(vehicle, route_stops)
 
     if best_segment is None:
         return None, None, None
 
+    speed_mps = best_segment["speed_mps"]
     eta_minutes = max(1, int(round(best_segment["distance_to_next_stop_m"] / speed_mps / 60.0)))
     next_stop = route_stops[best_segment["index"] + 1]
     return next_stop["name"], eta_minutes, best_segment["distance_to_next_stop_m"]
 
 
-def _calculate_on_road_distance_to_stop(vehicle, target_stop_id: str, route_stops: list[dict]) -> float | None:
+def _summarize_closest_vehicle_to_stop(vehicle, target_stop_id: str, route_stops: list[dict]) -> dict | None:
     if not route_stops:
         return None
 
-    # 1. Find the vehicle's position relative to the route segments.
-    _, _, distance_to_next_stop_m = _estimate_next_stop_for_vehicle(vehicle, route_stops)
-    if distance_to_next_stop_m is None:
+    progress = _get_best_route_segment(vehicle, route_stops)
+    if progress is None:
         return None
 
-    # Find the index of the next stop and the target stop in the sequence.
-    next_stop_index = -1
     target_stop_index = -1
     for i, stop in enumerate(route_stops):
-        if stop["id"] == _estimate_next_stop_for_vehicle(vehicle, route_stops)[0]:
-             # This is brittle, but _estimate_next_stop_for_vehicle only returns name.
-             # A better implementation would return the stop object or ID.
-             # For now, we find the *first* match by name.
-            if next_stop_index == -1:
-                next_stop_index = i
         if str(stop.get("id")) == str(target_stop_id):
             target_stop_index = i
+            break
 
-    if next_stop_index == -1 or target_stop_index == -1:
-        return None # Vehicle's next stop or target stop not on this route sequence.
+    if target_stop_index == -1:
+        return None
 
-    # 2. If the target stop is the vehicle's next stop, the distance is simple.
-    if next_stop_index == target_stop_index:
-        return distance_to_next_stop_m
+    next_stop_index = progress["index"] + 1
+    if next_stop_index >= len(route_stops):
+        next_stop_index = 0
 
-    # 3. If target is further along, sum segment distances.
-    total_distance_m = distance_to_next_stop_m
-    
-    # Iterate through segments from the next stop to the one before the target stop.
+    total_distance_m = progress["distance_to_next_stop_m"]
     current_idx = next_stop_index
+
     while current_idx != target_stop_index:
         start_stop = route_stops[current_idx]
         next_idx = (current_idx + 1) % len(route_stops)
         end_stop = route_stops[next_idx]
-        
-        total_distance_m += _haversine(start_stop["latitude"], start_stop["longitude"], end_stop["latitude"], end_stop["longitude"])
+
+        total_distance_m += _haversine(
+            start_stop["latitude"],
+            start_stop["longitude"],
+            end_stop["latitude"],
+            end_stop["longitude"],
+        )
         current_idx = next_idx
-        
-    return total_distance_m
+
+    speed_mps = progress["speed_mps"] or _speed_mps(None)
+    eta_minutes = max(1, int(math.ceil(total_distance_m / speed_mps / 60.0)))
+
+    next_stop = route_stops[next_stop_index]
+    pax_load = _vehicle_value(vehicle, "paxLoad", None)
+    total_cap = _vehicle_value(vehicle, "totalCap", None)
+
+    try:
+        pax_load = int(pax_load) if pax_load is not None else None
+    except (TypeError, ValueError):
+        pax_load = None
+
+    try:
+        total_cap = int(total_cap) if total_cap is not None else None
+    except (TypeError, ValueError):
+        total_cap = None
+
+    return {
+        "distance_miles": total_distance_m / 1609.34,
+        "next_stop_name": next_stop.get("name"),
+        "eta_minutes": eta_minutes,
+        "pax_load": pax_load,
+        "total_cap": total_cap,
+    }
 
 
 def _find_nearest_vehicle_to_stop(stop: dict, vehicles: list) -> tuple[float | None, float | None]:
@@ -658,34 +685,24 @@ def get_stops_details(
             r_payload = route_by_any_id.get(str(key))
             if r_payload:
                 route_vehicles = route_vehicle_map.get(str(key), [])
+                route_stops = route_stop_sequences.get(str(key), [])
                 payload_copy = r_payload.copy()
 
-                min_dist_m: float | None = None
-                closest_speed_mph: float | None = None
+                closest_summary = None
                 if stop_lat is not None and stop_lng is not None:
                     for vehicle in route_vehicles:
-                        vehicle_lat = _vehicle_latitude(vehicle)
-                        vehicle_lng = _vehicle_longitude(vehicle)
-                        if vehicle_lat is None or vehicle_lng is None:
+                        summary = _summarize_closest_vehicle_to_stop(vehicle, str(sid), route_stops)
+                        if summary is None:
                             continue
 
-                        dist_m = _haversine(float(stop_lat), float(stop_lng), float(vehicle_lat), float(vehicle_lng))
-                        if min_dist_m is None or dist_m < min_dist_m:
-                            min_dist_m = dist_m
-                            try:
-                                speed_value = _vehicle_value(vehicle, "speed", None)
-                                closest_speed_mph = float(speed_value) if speed_value is not None else None
-                            except (TypeError, ValueError):
-                                closest_speed_mph = None
+                        if closest_summary is None or summary["distance_miles"] < closest_summary["distance_miles"]:
+                            closest_summary = summary
 
-                payload_copy["closestBusDistanceMiles"] = (
-                    min_dist_m / 1609.34 if min_dist_m is not None else None
-                )
-                if min_dist_m is not None:
-                    speed_mph = closest_speed_mph if closest_speed_mph and closest_speed_mph > 0 else _DEFAULT_BUS_SPEED_MPH
-                    payload_copy["arrivalEtaMinutes"] = max(1, int(math.ceil((min_dist_m / 1609.34) / speed_mph * 60.0)))
-                else:
-                    payload_copy["arrivalEtaMinutes"] = None
+                payload_copy["closestBusDistanceMiles"] = closest_summary["distance_miles"] if closest_summary else None
+                payload_copy["closestBusNextStopName"] = closest_summary["next_stop_name"] if closest_summary else None
+                payload_copy["closestBusPaxLoad"] = closest_summary["pax_load"] if closest_summary else None
+                payload_copy["closestBusTotalCap"] = closest_summary["total_cap"] if closest_summary else None
+                payload_copy["arrivalEtaMinutes"] = closest_summary["eta_minutes"] if closest_summary else None
                 stop_routes.append(payload_copy)
 
         result.append(

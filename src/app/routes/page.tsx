@@ -32,6 +32,9 @@ type ApiRoute = {
   nextStopName?: string | null;
   nextStopEtaMinutes?: number | null;
   closestBusDistanceMiles?: number | null;
+  closestBusNextStopName?: string | null;
+  closestBusPaxLoad?: number | null;
+  closestBusTotalCap?: number | null;
   arrivalEtaMinutes?: number | null;
 };
 
@@ -115,21 +118,29 @@ function SavedStopCard({
                 const label = r.shortName
                   ? `${r.name} (${r.shortName})`
                   : r.name;
+                const capacityLabel =
+                  r.closestBusPaxLoad != null && r.closestBusTotalCap != null
+                    ? `${r.closestBusPaxLoad} / ${r.closestBusTotalCap} riders`
+                    : r.closestBusTotalCap != null
+                      ? `Capacity: ${r.closestBusTotalCap}`
+                      : "Capacity unavailable";
                 return (
                   <div key={getRouteKey(r)}>
                     <p>{label}</p>
-                    {/* Show the next stop first so the user can see where the bus is headed. */}
                     <p className="text-xs text-gray-500">
-                      {r.nextStopName
-                        ? r.nextStopEtaMinutes != null
-                          ? `Next stop: ${r.nextStopName} in ${r.nextStopEtaMinutes} min`
-                          : `Next stop: ${r.nextStopName}`
+                      {r.closestBusNextStopName
+                        ? `Next stop: ${r.closestBusNextStopName}`
+                        : r.nextStopName
+                          ? `Next stop: ${r.nextStopName}`
                         : "Next stop unavailable"}
                     </p>
                     <p className="text-xs text-gray-500">
                       {r.closestBusDistanceMiles != null
                         ? `Closest bus: ${r.closestBusDistanceMiles.toFixed(2)} miles from this stop`
                         : "Closest bus distance unavailable"}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Closest bus capacity: {capacityLabel}
                     </p>
                     <p className="text-xs text-gray-500">
                       {r.arrivalEtaMinutes != null
