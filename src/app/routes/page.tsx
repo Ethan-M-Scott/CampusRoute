@@ -29,10 +29,7 @@ type ApiRoute = {
   serviceTime?: string | null;
   activeVehicles: number;
   status: string;
-  nextStopName?: string | null;
-  nextStopEtaMinutes?: number | null;
   closestBusDistanceMiles?: number | null;
-  closestBusNextStopName?: string | null;
   closestBusPaxLoad?: number | null;
   closestBusTotalCap?: number | null;
   arrivalEtaMinutes?: number | null;
@@ -70,14 +67,6 @@ type SystemInfo = {
 // HELPER FUNCTIONS 
 
 function formatRouteStatus(route: ApiRoute, distanceMiles?: number | null) {
-  if (route.nextStopName && route.nextStopEtaMinutes != null) {
-    const etaPart = `Next stop: ${route.nextStopName} in ${route.nextStopEtaMinutes} min`;
-    if (distanceMiles != null) {
-      return `${distanceMiles.toFixed(2)} miles away — ${etaPart}`;
-    }
-    return etaPart;
-  }
-
   if (distanceMiles != null) {
     return `${distanceMiles.toFixed(2)} miles away — ${route.status}`;
   }
@@ -127,13 +116,6 @@ function SavedStopCard({
                 return (
                   <div key={getRouteKey(r)}>
                     <p>{label}</p>
-                    <p className="text-xs text-gray-500">
-                      {r.closestBusNextStopName
-                        ? `Next stop: ${r.closestBusNextStopName}`
-                        : r.nextStopName
-                          ? `Next stop: ${r.nextStopName}`
-                        : "Next stop unavailable"}
-                    </p>
                     <p className="text-xs text-gray-500">
                       {r.closestBusDistanceMiles != null
                         ? `Closest bus: ${r.closestBusDistanceMiles.toFixed(2)} miles from this stop`

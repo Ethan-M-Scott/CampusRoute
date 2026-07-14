@@ -338,7 +338,6 @@ def _summarize_closest_vehicle_to_stop(vehicle, target_stop_id: str, route_stops
     speed_mps = progress["speed_mps"] or _speed_mps(None)
     eta_minutes = max(1, int(math.ceil(total_distance_m / speed_mps / 60.0)))
 
-    next_stop = route_stops[next_stop_index]
     pax_load = _vehicle_value(vehicle, "paxLoad", None)
     total_cap = _vehicle_value(vehicle, "totalCap", None)
 
@@ -354,7 +353,6 @@ def _summarize_closest_vehicle_to_stop(vehicle, target_stop_id: str, route_stops
 
     return {
         "distance_miles": total_distance_m / 1609.34,
-        "next_stop_name": next_stop.get("name"),
         "eta_minutes": eta_minutes,
         "pax_load": pax_load,
         "total_cap": total_cap,
@@ -393,22 +391,6 @@ def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     )
     c = 2.0 * math.atan2(math.sqrt(a), math.sqrt(1.0 - a))
     return R * c
-
-def _estimate_route_eta(route_stops: list[dict], vehicles: list) -> tuple[str | None, int | None]:
-    best_name = None
-    best_eta = None
-
-    for vehicle in vehicles:
-        next_stop_name, eta_minutes, _ = _estimate_next_stop_for_vehicle(vehicle, route_stops)
-        if next_stop_name is None or eta_minutes is None:
-            continue
-
-        if best_eta is None or eta_minutes < best_eta:
-            best_name = next_stop_name
-            best_eta = eta_minutes
-
-    return best_name, best_eta
-
 
 def _closest_bus_distance_to_stop_miles(
     stop_lat: float,
@@ -519,14 +501,6 @@ def _build_route_payloads(system_id: int, routes, vehicles):
 
         active = len(matched_vehicles)
 
-        route_stops = []
-        for route_id in route_ids:
-            route_stops = route_stop_sequences.get(str(route_id), [])
-            if route_stops:
-                break
-
-        next_stop_name, next_stop_eta = _estimate_route_eta(route_stops, matched_vehicles)
-
         payload = {
             "id": str(rid) if rid is not None else str(myid),
             "name": getattr(r, "name", "Unnamed route"),
@@ -534,8 +508,6 @@ def _build_route_payloads(system_id: int, routes, vehicles):
             "serviceTime": getattr(r, "serviceTime", None),
             "activeVehicles": active,
             "status": "Buses on route" if active > 0 else "No buses currently on route",
-            "nextStopName": next_stop_name,
-            "nextStopEtaMinutes": next_stop_eta,
         }
 
         base_routes.append(payload)
@@ -604,7 +576,6 @@ def get_nearby_routes(
                 "name": getattr(s, "name", "Unnamed stop"),
                 "latitude": s_lat,
                 "longitude": s_lng,
-                "distanceMeters": d_m,
                 "distanceMiles": d_m / 1609.34,
                 "routes": stop_routes,
             }
@@ -699,7 +670,6 @@ def get_stops_details(
                             closest_summary = summary
 
                 payload_copy["closestBusDistanceMiles"] = closest_summary["distance_miles"] if closest_summary else None
-                payload_copy["closestBusNextStopName"] = closest_summary["next_stop_name"] if closest_summary else None
                 payload_copy["closestBusPaxLoad"] = closest_summary["pax_load"] if closest_summary else None
                 payload_copy["closestBusTotalCap"] = closest_summary["total_cap"] if closest_summary else None
                 payload_copy["arrivalEtaMinutes"] = closest_summary["eta_minutes"] if closest_summary else None
