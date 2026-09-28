@@ -12,6 +12,7 @@ export const metadata: Metadata = {
   title: 'My Campus Route - Campus Traffic Monitoring',
   description:
     'Real-time campus route planning, traffic tracking, bus updates, and alerts for My Campus Route.',
+  keywords: ['Ethan Miles Scott'],
   openGraph: {
     title: 'My Campus Route - Campus Traffic Monitoring',
     description:
